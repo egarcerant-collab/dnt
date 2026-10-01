@@ -11,7 +11,8 @@ export interface Sesion {
   rol: Rol;
   nombre: string;
   ips?: string; // IPS del prestador
-  debeCambiarClave?: boolean; // primer ingreso con NIT
+  debeCambiarClave?: boolean; // reservado: obliga a cambiar la contraseña antes de continuar
+  usaNit?: boolean; // el prestador ingresó con el NIT (se le recomienda crear contraseña personal)
   exp: number; // epoch en segundos
 }
 

@@ -1,6 +1,6 @@
 import 'server-only';
 import crypto from 'crypto';
-import { getStore } from './dnt/store';
+import { actualizarJson, getStore } from './dnt/store';
 
 export type RolUsuario = 'admin' | 'epsi' | 'prestador';
 
@@ -13,6 +13,10 @@ export interface Usuario {
   hash: string;
   activo: boolean;
   creadoEn: string;
+  /** Registro hecho por el propio funcionario, pendiente de aprobación del administrador. */
+  pendiente?: boolean;
+  correo?: string;
+  cargo?: string;
 }
 
 export type UsuarioPublico = Omit<Usuario, 'hash'>;
@@ -44,7 +48,8 @@ const normalizarUsuario = (u: string) => u.trim().toLowerCase().replace(/@dusaka
 export async function listarUsuarios(): Promise<Usuario[]> {
   const store = getStore();
   const usuarios = (await store.leer<Usuario[]>(ARCHIVO)) ?? [];
-  if (usuarios.length === 0 && process.env.ADMIN_USUARIO && process.env.ADMIN_PASSWORD) {
+  const hayAdmin = usuarios.some(u => u.rol === 'admin' && !u.pendiente);
+  if (!hayAdmin && process.env.ADMIN_USUARIO && process.env.ADMIN_PASSWORD && !usuarios.some(u => u.usuario === normalizarUsuario(process.env.ADMIN_USUARIO!))) {
     usuarios.push({
       id: crypto.randomUUID(),
       usuario: normalizarUsuario(process.env.ADMIN_USUARIO),
@@ -74,7 +79,7 @@ export function registrarFallo(clave: string) {
 }
 export const limpiarIntentos = (clave: string) => intentos.delete(clave);
 
-export type ResultadoLogin = { ok: true; usuario: Usuario } | { ok: false; motivo: 'credenciales' | 'bloqueado' | 'inactivo' };
+export type ResultadoLogin = { ok: true; usuario: Usuario } | { ok: false; motivo: 'credenciales' | 'bloqueado' | 'inactivo' | 'pendiente' };
 
 export async function autenticar(usuario: string, password: string): Promise<ResultadoLogin> {
   const clave = normalizarUsuario(usuario);
@@ -88,8 +93,56 @@ export async function autenticar(usuario: string, password: string): Promise<Res
     return { ok: false, motivo: 'credenciales' };
   }
   limpiarIntentos(clave);
+  if (u.pendiente) return { ok: false, motivo: 'pendiente' };
   if (!u.activo) return { ok: false, motivo: 'inactivo' };
   return { ok: true, usuario: u };
+}
+
+const DOMINIO = '@dusakawiepsi.com';
+const MAX_PENDIENTES = 50;
+
+/**
+ * Autorregistro de funcionarios EPSI: solo correo institucional. La cuenta queda inactiva
+ * y pendiente hasta que un administrador la apruebe y le asigne el rol.
+ */
+export async function registrarSolicitud(datos: { correo: string; nombre: string; cargo: string; password: string }) {
+  const correo = datos.correo.trim().toLowerCase();
+  if (!/^[a-z0-9._-]{3,40}@dusakawiepsi\.com$/.test(correo)) throw new Error(`Usa tu correo institucional ${DOMINIO}`);
+  const nombre = datos.nombre.trim().replace(/\s+/g, ' ');
+  if (nombre.length < 5 || nombre.length > 100) throw new Error('Escribe tu nombre completo');
+  if (datos.password.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres');
+
+  const usuario = normalizarUsuario(correo);
+  await actualizarJson<Usuario[]>(ARCHIVO, () => [], usuarios => {
+    // Mensaje genérico para no revelar qué correos ya tienen cuenta
+    if (usuarios.some(u => u.usuario === usuario)) throw new Error('No fue posible registrar la solicitud con ese correo');
+    if (usuarios.filter(u => u.pendiente).length >= MAX_PENDIENTES) throw new Error('Hay demasiadas solicitudes pendientes. Intenta más tarde.');
+    usuarios.push({
+      id: crypto.randomUUID(),
+      usuario,
+      nombre,
+      rol: 'epsi',
+      hash: hashPassword(datos.password),
+      activo: false,
+      pendiente: true,
+      correo,
+      cargo: datos.cargo.trim().slice(0, 100),
+      creadoEn: new Date().toISOString(),
+    });
+  });
+}
+
+/** Administrador: aprueba (con rol) o rechaza (elimina) una solicitud de registro. */
+export async function resolverSolicitud(id: string, decision: { aprobar: true; rol: 'epsi' | 'admin' } | { aprobar: false }) {
+  await actualizarJson<Usuario[]>(ARCHIVO, () => [], usuarios => {
+    const i = usuarios.findIndex(u => u.id === id && u.pendiente);
+    if (i < 0) throw new Error('Solicitud no encontrada');
+    if (!decision.aprobar) {
+      usuarios.splice(i, 1);
+      return;
+    }
+    Object.assign(usuarios[i], { pendiente: false, activo: true, rol: decision.rol });
+  });
 }
 
 export async function crearUsuario(datos: { usuario: string; nombre: string; rol: RolUsuario; ips?: string; password: string }) {

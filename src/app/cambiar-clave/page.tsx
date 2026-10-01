@@ -18,11 +18,12 @@ export default async function CambiarClave() {
         </div>
         <div className="flex flex-col gap-4 px-8 py-6">
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            {sesion.debeCambiarClave
-              ? 'Ingresaste con el NIT. Como el NIT es un dato público, debes crear una contraseña personal para proteger la información de los niños.'
+            {sesion.usaNit
+              ? 'Ingresaste con el NIT. Te recomendamos crear una contraseña personal: el NIT es un dato público. Al crearla, el NIT deja de funcionar como contraseña.'
               : 'Cambia la contraseña de acceso de tu IPS.'}
           </p>
           <FormCambiarClave />
+          <a href="/prestador" className="text-center text-sm text-marca-700 hover:underline">Ahora no, volver a mis niños</a>
         </div>
       </div>
     </main>

@@ -9,7 +9,7 @@ export default async function Ingreso({ searchParams }: { searchParams: Promise<
   const sesion = await getSesion();
   if (sesion) redirect(sesion.debeCambiarClave ? '/cambiar-clave' : rutaInicio(sesion.rol));
   const { error, modo } = await searchParams;
-  const prestadores = (await listarPrestadores()).filter(p => p.activo).map(p => ({ ips: p.ips, nit: p.nit }));
+  const prestadores = (await listarPrestadores()).filter(p => p.activo).map(p => p.ips);
 
   return (
     <div className="flex min-h-screen flex-col">

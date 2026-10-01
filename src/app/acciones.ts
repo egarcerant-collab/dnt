@@ -7,7 +7,7 @@ import { leerExcel } from '@/lib/dnt/excel-source';
 import { enviarMensaje, type TipoMensaje } from '@/lib/dnt/mensajes';
 import { actualizarPrestador, autenticarPrestador, establecerClavePrestador } from '@/lib/prestadores';
 import { COOKIE, DURACION_SEG, codificarSesion, esEpsi, getSesion, rutaInicio } from '@/lib/sesion';
-import { actualizarUsuario, autenticar, crearUsuario, type RolUsuario } from '@/lib/usuarios';
+import { actualizarUsuario, autenticar, crearUsuario, registrarSolicitud, resolverSolicitud, type RolUsuario } from '@/lib/usuarios';
 
 export type EstadoAccion = { ok: boolean; mensaje: string } | null;
 
@@ -39,7 +39,7 @@ export async function iniciarSesion(form: FormData) {
   redirect(rutaInicio(u.rol));
 }
 
-/** Prestadores: buscan su IPS y entran con el NIT (primer ingreso) o su contraseña personal. */
+/** Prestadores: eligen su IPS y entran con el NIT, o con su contraseña personal si la crearon. */
 export async function iniciarSesionPrestador(form: FormData) {
   const ips = String(form.get('ips') ?? '');
   const password = String(form.get('password') ?? '');
@@ -55,9 +55,9 @@ export async function iniciarSesionPrestador(form: FormData) {
     rol: 'prestador',
     nombre: r.prestador.ips,
     ips: r.prestador.ips,
-    debeCambiarClave: r.debeCambiarClave,
+    usaNit: r.debeCambiarClave,
   });
-  redirect(r.debeCambiarClave ? '/cambiar-clave' : '/prestador');
+  redirect('/prestador');
 }
 
 export async function accionCambiarClavePrestador(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
@@ -70,7 +70,7 @@ export async function accionCambiarClavePrestador(_prev: EstadoAccion, form: For
   } catch (e) {
     return { ok: false, mensaje: (e as Error).message };
   }
-  const { exp: _exp, debeCambiarClave: _d, ...resto } = s;
+  const { exp: _exp, debeCambiarClave: _d, usaNit: _n, ...resto } = s;
   await guardarSesion(resto);
   redirect('/prestador');
 }
@@ -164,6 +164,38 @@ export async function accionActualizarPrestador(_prev: EstadoAccion, form: FormD
     });
     revalidatePath('/admin');
     return { ok: true, mensaje: restablecer ? 'Acceso restablecido: vuelve a entrar con el NIT.' : 'Prestador actualizado.' };
+  } catch (e) {
+    return { ok: false, mensaje: (e as Error).message };
+  }
+}
+
+// ── Registro de funcionarios EPSI (pendiente de aprobación) ────────────
+
+export async function accionRegistrarse(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
+  const password = String(form.get('password') ?? '');
+  if (password !== String(form.get('confirmar') ?? '')) return { ok: false, mensaje: 'Las contraseñas no coinciden' };
+  try {
+    await registrarSolicitud({
+      correo: String(form.get('correo') ?? ''),
+      nombre: String(form.get('nombre') ?? ''),
+      cargo: String(form.get('cargo') ?? ''),
+      password,
+    });
+  } catch (e) {
+    return { ok: false, mensaje: (e as Error).message };
+  }
+  return { ok: true, mensaje: 'Solicitud enviada. Podrás ingresar cuando el administrador la apruebe.' };
+}
+
+export async function accionResolverSolicitud(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
+  try {
+    await exigirAdmin();
+    const id = String(form.get('id'));
+    const aprobar = form.get('decision') === 'aprobar';
+    const rol = form.get('rol') === 'admin' ? 'admin' : 'epsi';
+    await resolverSolicitud(id, aprobar ? { aprobar: true, rol } : { aprobar: false });
+    revalidatePath('/admin');
+    return { ok: true, mensaje: aprobar ? 'Solicitud aprobada.' : 'Solicitud rechazada.' };
   } catch (e) {
     return { ok: false, mensaje: (e as Error).message };
   }

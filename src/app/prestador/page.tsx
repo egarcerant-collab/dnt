@@ -35,6 +35,12 @@ export default async function VistaPrestador({ searchParams }: { searchParams: P
           </p>
         )}
         {sesion.rol === 'admin' && <SelectorIps opciones={listaIps} valor={ips!} />}
+        {sesion.usaNit && (
+          <Link href="/cambiar-clave" className="tarjeta flex items-center justify-between border-marca-100 bg-marca-50 p-3 text-sm text-marca-900">
+            <span>Ingresaste con el NIT. Te recomendamos crear una contraseña personal.</span>
+            <span className="font-semibold">Crear contraseña →</span>
+          </Link>
+        )}
         {pendientes > 0 && (
           <Link href="/notificaciones" className="tarjeta flex items-center justify-between border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
             <span>Tienes <b>{pendientes}</b> notificación(es) o pregunta(s) de la EPSI sin leer.</span>

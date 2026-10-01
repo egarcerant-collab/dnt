@@ -1,18 +1,18 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { iniciarSesion, iniciarSesionPrestador } from '@/app/acciones';
+import { accionRegistrarse, iniciarSesion, iniciarSesionPrestador } from '@/app/acciones';
 
-type Pestana = 'epsi' | 'prestador';
-export interface OpcionPrestador { ips: string; nit: string }
+type Pestana = 'epsi' | 'registro' | 'prestador';
 
 const ERRORES: Record<string, string> = {
   credenciales: 'Usuario o contraseña incorrectos.',
   bloqueado: 'Demasiados intentos fallidos. Espera 5 minutos.',
-  inactivo: 'Este acceso está desactivado. Contacta a la EPSI.',
+  inactivo: 'Este acceso está desactivado. Contacta al administrador.',
+  pendiente: 'Tu solicitud de registro aún no ha sido aprobada por el administrador.',
   'sin-nit': 'Tu IPS aún no tiene NIT registrado. Solicita a la EPSI que lo registre.',
-  'usar-pestana-prestador': 'Los prestadores ingresan por la pestaña "Prestadores (IPS)".',
+  'usar-pestana-prestador': 'Los prestadores ingresan por la pestaña "Prestadores".',
 };
 
 function Boton({ texto }: { texto: string }) {
@@ -20,13 +20,14 @@ function Boton({ texto }: { texto: string }) {
   return <button className="boton py-2.5" disabled={pending}>{pending ? 'Verificando…' : texto}</button>;
 }
 
-function CampoPassword({ etiqueta, ayuda }: { etiqueta: string; ayuda?: string }) {
+function CampoPassword({ etiqueta, nombre = 'password', ayuda, nueva }: { etiqueta: string; nombre?: string; ayuda?: string; nueva?: boolean }) {
   const [ver, setVer] = useState(false);
   return (
     <label className="flex flex-col gap-1 text-sm font-medium">
       {etiqueta}
       <div className="relative">
-        <input name="password" type={ver ? 'text' : 'password'} required autoComplete="current-password" className="input pr-16" placeholder="••••••••" />
+        <input name={nombre} type={ver ? 'text' : 'password'} required minLength={nueva ? 8 : undefined}
+          autoComplete={nueva ? 'new-password' : 'current-password'} className="input pr-16" placeholder="••••••••" />
         <button type="button" onClick={() => setVer(v => !v)} className="absolute inset-y-0 right-2 text-xs font-medium text-marca-700">
           {ver ? 'Ocultar' : 'Ver'}
         </button>
@@ -36,51 +37,43 @@ function CampoPassword({ etiqueta, ayuda }: { etiqueta: string; ayuda?: string }
   );
 }
 
-/** Buscador de prestador por nombre o NIT. */
-function BuscadorPrestador({ prestadores }: { prestadores: OpcionPrestador[] }) {
-  const [q, setQ] = useState('');
-  const [elegido, setElegido] = useState<OpcionPrestador | null>(null);
-  const resultados = useMemo(() => {
-    const t = q.trim().toUpperCase();
-    if (t.length < 2) return [];
-    return prestadores.filter(p => p.ips.includes(t) || (p.nit && p.nit.includes(t.replace(/\D/g, '') || '#'))).slice(0, 8);
-  }, [q, prestadores]);
+function Error({ error }: { error?: string }) {
+  return error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{ERRORES[error] ?? 'No fue posible ingresar.'}</p> : null;
+}
 
+function FormRegistro() {
+  const [estado, accion, pendiente] = useActionState(accionRegistrarse, null);
+  if (estado?.ok) {
+    return (
+      <div className="flex flex-col gap-3 px-8 py-6">
+        <p className="rounded-lg bg-marca-50 px-3 py-3 text-sm text-marca-900">{estado.mensaje}</p>
+      </div>
+    );
+  }
   return (
-    <div className="flex flex-col gap-1 text-sm font-medium">
-      Prestador (IPS)
-      <input type="hidden" name="ips" value={elegido?.ips ?? ''} />
-      {elegido ? (
-        <div className="flex items-center justify-between rounded-lg border border-marca-600 bg-marca-50 px-3 py-2">
-          <span>
-            <b className="block text-marca-900">{elegido.ips}</b>
-            <span className="text-xs font-normal text-slate-600">NIT {elegido.nit || 'pendiente de registro'}</span>
-          </span>
-          <button type="button" className="text-xs text-marca-700 hover:underline" onClick={() => { setElegido(null); setQ(''); }}>Cambiar</button>
-        </div>
-      ) : (
-        <div className="relative">
-          <input value={q} onChange={e => setQ(e.target.value)} className="input" placeholder="Escribe el nombre o el NIT de tu IPS" autoComplete="off" />
-          {resultados.length > 0 && (
-            <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-              {resultados.map(p => (
-                <li key={p.ips}>
-                  <button type="button" onClick={() => setElegido(p)} className="w-full px-3 py-2 text-left hover:bg-marca-50">
-                    <span className="block font-medium">{p.ips}</span>
-                    <span className="text-xs text-slate-500">NIT {p.nit || 'pendiente'}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {q.trim().length >= 2 && resultados.length === 0 && <p className="mt-1 text-xs font-normal text-slate-500">No se encontró ningún prestador.</p>}
-        </div>
-      )}
-    </div>
+    <form action={accion} className="flex flex-col gap-4 px-8 py-6">
+      <p className="text-sm text-slate-500">Para funcionarios de Dusakawi EPSI. Tu cuenta quedará activa cuando el administrador apruebe la solicitud.</p>
+      {estado && !estado.ok && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{estado.mensaje}</p>}
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Nombre completo
+        <input name="nombre" required minLength={5} maxLength={100} autoComplete="name" className="input" />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Correo institucional
+        <input name="correo" type="email" required pattern="[A-Za-z0-9._\-]+@dusakawiepsi\.com" autoComplete="email" className="input" placeholder="usuario@dusakawiepsi.com" />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium">
+        Cargo / área
+        <input name="cargo" maxLength={100} className="input" placeholder="Ej: Auditor · Gestión del Riesgo" />
+      </label>
+      <CampoPassword etiqueta="Contraseña" nueva ayuda="Mínimo 8 caracteres." />
+      <CampoPassword etiqueta="Confirmar contraseña" nombre="confirmar" nueva />
+      <button className="boton py-2.5" disabled={pendiente}>{pendiente ? 'Enviando…' : 'Solicitar registro'}</button>
+    </form>
   );
 }
 
-export function FormIngreso({ prestadores, error, pestanaInicial }: { prestadores: OpcionPrestador[]; error?: string; pestanaInicial?: Pestana }) {
+export function FormIngreso({ prestadores, error, pestanaInicial }: { prestadores: string[]; error?: string; pestanaInicial?: Pestana }) {
   const [pestana, setPestana] = useState<Pestana>(pestanaInicial ?? 'epsi');
 
   return (
@@ -96,11 +89,12 @@ export function FormIngreso({ prestadores, error, pestanaInicial }: { prestadore
         <p className="text-sm text-white/85">Monitoreo de Desnutrición Aguda en menores de 5 años</p>
       </div>
 
-      <div className="grid grid-cols-2 border-b border-slate-200 text-sm" role="tablist">
+      <div className="grid grid-cols-3 border-b border-slate-200 text-sm" role="tablist">
         {(
           [
-            ['epsi', 'Funcionarios EPSI'],
-            ['prestador', 'Prestadores (IPS)'],
+            ['epsi', 'Iniciar sesión'],
+            ['registro', 'Registrarse'],
+            ['prestador', 'Prestadores'],
           ] as const
         ).map(([k, label]) => (
           <button
@@ -116,10 +110,10 @@ export function FormIngreso({ prestadores, error, pestanaInicial }: { prestadore
         ))}
       </div>
 
-      {pestana === 'epsi' ? (
+      {pestana === 'epsi' && (
         <form key="epsi" action={iniciarSesion} className="flex flex-col gap-4 px-8 py-6">
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{ERRORES[error] ?? 'No fue posible ingresar.'}</p>}
-          <p className="text-sm text-slate-500">Indicadores, cumplimiento por prestador y municipio, alertas y calidad del dato.</p>
+          <Error error={pestanaInicial === 'epsi' ? error : undefined} />
+          <p className="text-sm text-slate-500">Funcionarios EPSI: indicadores, cumplimiento por prestador y municipio, alertas y calidad del dato.</p>
           <label className="flex flex-col gap-1 text-sm font-medium">
             Usuario
             <input name="usuario" required autoComplete="username" autoCapitalize="none" className="input" placeholder="usuario o correo @dusakawiepsi.com" />
@@ -127,12 +121,22 @@ export function FormIngreso({ prestadores, error, pestanaInicial }: { prestadore
           <CampoPassword etiqueta="Contraseña" />
           <Boton texto="Ingresar al sistema" />
         </form>
-      ) : (
+      )}
+
+      {pestana === 'registro' && <FormRegistro />}
+
+      {pestana === 'prestador' && (
         <form key="prestador" action={iniciarSesionPrestador} className="flex flex-col gap-4 px-8 py-6">
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{ERRORES[error] ?? 'No fue posible ingresar.'}</p>}
+          <Error error={pestanaInicial === 'prestador' ? error : undefined} />
           <p className="text-sm text-slate-500">Diligencia los controles de seguimiento de tus niños, responde notificaciones y carga historias clínicas.</p>
-          <BuscadorPrestador prestadores={prestadores} />
-          <CampoPassword etiqueta="Contraseña" ayuda="Primer ingreso: escribe el NIT de la IPS. Luego crearás tu contraseña personal." />
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Prestador (IPS)
+            <select name="ips" required defaultValue="" className="input">
+              <option value="" disabled>Selecciona tu IPS…</option>
+              {prestadores.map(i => <option key={i} value={i}>{i}</option>)}
+            </select>
+          </label>
+          <CampoPassword etiqueta="Contraseña" ayuda="La contraseña es el NIT de la IPS (con o sin dígito de verificación)." />
           <Boton texto="Ingresar como prestador" />
         </form>
       )}

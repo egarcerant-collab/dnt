@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { TablaPrestadores } from '@/components/admin-prestadores';
 import { CargarBase } from '@/components/cargar-base';
+import { SolicitudesRegistro } from '@/components/admin-solicitudes';
 import { FormNuevoUsuario, AccionesUsuario } from '@/components/admin-usuarios';
 import { aPublico, listarPrestadores } from '@/lib/prestadores';
 import { Encabezado } from '@/components/encabezado';
@@ -20,6 +21,8 @@ export default async function Administracion() {
   const [base, usuarios, prestadores] = await Promise.all([obtenerBase(), listarUsuarios(), listarPrestadores()]);
   const casosPorIps = new Map<string, number>();
   base.casos.forEach(c => casosPorIps.set(c.ipsSeguimiento, (casosPorIps.get(c.ipsSeguimiento) ?? 0) + 1));
+  const solicitudes = usuarios.filter(u => u.pendiente).map(u => ({ id: u.id, nombre: u.nombre, correo: u.correo ?? u.usuario, cargo: u.cargo ?? '', creadoEn: u.creadoEn }));
+  const activos = usuarios.filter(u => !u.pendiente);
   const filasPrestadores = prestadores.map(aPublico).map(p => ({ ...p, casos: casosPorIps.get(p.ips) ?? 0 }));
 
   return (
@@ -27,13 +30,14 @@ export default async function Administracion() {
       <Encabezado sesion={sesion} fechaCorte={base.fechaCorte} almacenamiento={base.almacenamiento} />
       <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6">
         <h1 className="text-2xl font-bold text-marca-900">Administración</h1>
+        <SolicitudesRegistro solicitudes={solicitudes} />
         <CargarBase origen={base.origenBase} casos={base.casos.length} almacenamiento={base.almacenamiento} />
         <TablaPrestadores prestadores={filasPrestadores} />
         <h2 className="mt-2 text-lg font-semibold text-marca-900">Usuarios EPSI</h2>
         <FormNuevoUsuario />
 
         <section className="tarjeta overflow-x-auto">
-          <h2 className="border-b border-slate-100 p-4 font-semibold">Usuarios registrados ({usuarios.length})</h2>
+          <h2 className="border-b border-slate-100 p-4 font-semibold">Usuarios registrados ({activos.length})</h2>
           <table className="w-full text-sm">
             <thead className="bg-marca-50 text-left text-xs uppercase text-marca-900">
               <tr>
@@ -43,7 +47,7 @@ export default async function Administracion() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {usuarios.map(sinHash).map(u => (
+              {activos.map(sinHash).map(u => (
                 <tr key={u.id}>
                   <td className="px-3 py-2 font-mono">{u.usuario}</td>
                   <td className="px-3 py-2">{u.nombre}</td>
