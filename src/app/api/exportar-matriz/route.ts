@@ -52,7 +52,7 @@ export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
   const filtros = { depto: params.get('depto') || undefined, municipio: params.get('municipio') || undefined, ips: params.get('ips') || undefined };
   const casos = filtrarCasos((await obtenerBase()).casos, filtros);
-  const originales = leerExcel().filas;
+  const originales = (await leerExcel()).filas;
 
   // Encabezados (filas 1–3) y celdas combinadas tomados de la plantilla oficial
   const libro = XLSX.read(fs.readFileSync(PLANTILLA));

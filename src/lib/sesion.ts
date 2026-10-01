@@ -19,14 +19,16 @@ export const COOKIE = 'dnt_sesion';
 export const DURACION_SEG = 60 * 60 * 10;
 
 // En desarrollo se genera un secreto por proceso (compartido entre bundles vía globalThis).
+// Se resuelve al usarse (no al importar) para que `next build` no lo exija.
 const g = globalThis as { __dntSecreto?: string };
-if (!process.env.SESSION_SECRET && process.env.NODE_ENV === 'production') {
-  throw new Error('SESSION_SECRET es obligatorio en producción');
+function secreto(): string {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  if (process.env.NODE_ENV === 'production') throw new Error('Falta la variable SESSION_SECRET en el servidor');
+  return (g.__dntSecreto ??= crypto.randomBytes(32).toString('hex'));
 }
-const SECRETO = process.env.SESSION_SECRET || (g.__dntSecreto ??= crypto.randomBytes(32).toString('hex'));
 
 function firmar(valor: string) {
-  return crypto.createHmac('sha256', SECRETO).update(valor).digest('base64url');
+  return crypto.createHmac('sha256', secreto()).update(valor).digest('base64url');
 }
 
 export function codificarSesion(s: Omit<Sesion, 'exp'>): string {

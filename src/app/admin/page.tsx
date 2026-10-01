@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { TablaPrestadores } from '@/components/admin-prestadores';
+import { CargarBase } from '@/components/cargar-base';
 import { FormNuevoUsuario, AccionesUsuario } from '@/components/admin-usuarios';
 import { aPublico, listarPrestadores } from '@/lib/prestadores';
 import { Encabezado } from '@/components/encabezado';
@@ -26,6 +27,7 @@ export default async function Administracion() {
       <Encabezado sesion={sesion} fechaCorte={base.fechaCorte} almacenamiento={base.almacenamiento} />
       <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6">
         <h1 className="text-2xl font-bold text-marca-900">Administración</h1>
+        <CargarBase origen={base.origenBase} casos={base.casos.length} almacenamiento={base.almacenamiento} />
         <TablaPrestadores prestadores={filasPrestadores} />
         <h2 className="mt-2 text-lg font-semibold text-marca-900">Usuarios EPSI</h2>
         <FormNuevoUsuario />

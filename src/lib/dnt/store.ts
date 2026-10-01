@@ -18,11 +18,13 @@ export interface JsonStore {
   leerArchivo(nombre: string): Promise<Buffer | null>;
 }
 
-const NOMBRE_SEGURO = /^[a-z0-9-]+\.(pdf|jpg|png)$/;
+const NOMBRE_SEGURO = /^[a-z0-9-]+\.(pdf|jpg|png|xlsx)$/;
 
 class LocalStore implements JsonStore {
   readonly tipo = 'local' as const;
-  private dir = path.join(process.cwd(), 'data', 'app');
+  // En Vercel el disco del proyecto es de solo lectura: /tmp funciona pero se BORRA en cada reinicio.
+  // En producción configure Google Drive (GDRIVE_FOLDER_ID + GOOGLE_SERVICE_ACCOUNT_JSON).
+  private dir = process.env.DATA_DIR || (process.env.VERCEL ? '/tmp/dnt' : path.join(process.cwd(), 'data', 'app'));
 
   async leer<T>(nombre: string): Promise<T | null> {
     try {
@@ -113,9 +115,15 @@ class DriveStore implements JsonStore {
   async guardarArchivo(nombre: string, contenido: Buffer, mime: string): Promise<void> {
     if (!NOMBRE_SEGURO.test(nombre)) throw new Error('Nombre de archivo inválido');
     const drive = await this.drive();
+    const media = { mimeType: mime, body: Readable.from([contenido]) };
+    const id = await this.buscarId(nombre);
+    if (id) {
+      await drive.files.update({ fileId: id, media, supportsAllDrives: true });
+      return;
+    }
     await drive.files.create({
       requestBody: { name: nombre, parents: [this.folderId], mimeType: mime },
-      media: { mimeType: mime, body: Readable.from([contenido]) },
+      media,
       fields: 'id',
       supportsAllDrives: true,
     });

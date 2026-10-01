@@ -10,7 +10,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
   const id = decodeURIComponent((await params).id);
-  const caso = leerExcel().casos.find(c => c.id === id);
+  const caso = (await leerExcel()).casos.find(c => c.id === id);
   if (!caso) return NextResponse.json({ error: 'Caso no encontrado' }, { status: 404 });
   if (sesion.rol === 'prestador' && caso.ipsSeguimiento !== sesion.ips) {
     return NextResponse.json({ error: 'El caso no pertenece a tu IPS' }, { status: 403 });

@@ -28,9 +28,9 @@ const soloDigitos = (v: string) => v.replace(/\D/g, '');
  * NIT por IPS tomado de SIVIGILA (nom_upgd / nit_upgd). SIVIGILA suele concatenar el dígito
  * de verificación: 10 dígitos que inician en 8 o 9 → 9 de NIT + 1 de DV.
  */
-function nitsDesdeSivigila(): Map<string, { nit: string; dv: string }> {
+async function nitsDesdeSivigila(): Promise<Map<string, { nit: string; dv: string }>> {
   const conteo = new Map<string, Map<string, number>>();
-  for (const u of leerExcel().upgd) {
+  for (const u of (await leerExcel()).upgd) {
     const ips = ipsCanonica(u.nombre);
     if (!ips || !u.nit || /^0+$/.test(u.nit)) continue;
     const m = conteo.get(ips) ?? new Map<string, number>();
@@ -50,10 +50,10 @@ export async function listarPrestadores(): Promise<Prestador[]> {
   const store = getStore();
   const guardados = (await store.leer<Prestador[]>(ARCHIVO)) ?? [];
   const porIps = new Map(guardados.map(p => [p.ips, p]));
-  const sugeridos = nitsDesdeSivigila();
+  const sugeridos = await nitsDesdeSivigila();
   let cambios = false;
 
-  for (const ips of new Set(leerExcel().casos.map(c => c.ipsSeguimiento))) {
+  for (const ips of new Set((await leerExcel()).casos.map(c => c.ipsSeguimiento))) {
     if (ips === 'SIN IPS ASIGNADA' || porIps.has(ips)) continue;
     const s = sugeridos.get(ips);
     porIps.set(ips, { ips, nit: s?.nit ?? '', dv: s?.dv ?? '', activo: true, nitConfirmado: false, actualizadoEn: new Date().toISOString() });

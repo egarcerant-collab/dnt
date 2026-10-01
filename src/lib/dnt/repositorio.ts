@@ -46,11 +46,13 @@ export interface Base {
   casos: Caso[];
   fechaCorte: string;
   almacenamiento: 'drive' | 'local';
+  baseDisponible: boolean;
+  origenBase: 'archivo-local' | 'almacenamiento' | 'ninguno';
   sivigila: { hoja: string | null; total: number; sinSeguimiento: number };
 }
 
 export async function obtenerBase(): Promise<Base> {
-  const excel = leerExcel();
+  const excel = await leerExcel();
   const store = getStore();
   const app = (await store.leer<SeguimientosApp>(ARCHIVO_SEGUIMIENTOS)) ?? {};
 
@@ -78,6 +80,8 @@ export async function obtenerBase(): Promise<Base> {
     casos,
     fechaCorte: corte,
     almacenamiento: store.tipo,
+    baseDisponible: excel.disponible,
+    origenBase: excel.origen,
     sivigila: {
       hoja: excel.hojaSivigila,
       total: excel.sivigila.size,
@@ -94,7 +98,7 @@ export async function obtenerCaso(id: string): Promise<{ caso: Caso; fechaCorte:
 
 /** Guarda un control diligenciado por el prestador (siguiente bloque libre de AY..KF). */
 export async function registrarControl(id: string, input: NuevoControlInput, usuario: string): Promise<void> {
-  const base = leerExcel().casos.find(c => c.id === id);
+  const base = (await leerExcel()).casos.find(c => c.id === id);
   if (!base) throw new Error('Caso no encontrado');
   const ahora = new Date().toISOString();
 
@@ -115,7 +119,7 @@ export async function registrarControl(id: string, input: NuevoControlInput, usu
 
 /** Columna AX: IPS / ESE de atención primaria, diligenciada por el prestador. */
 export async function registrarAtencionPrimaria(id: string, valor: string): Promise<void> {
-  if (!leerExcel().casos.some(c => c.id === id)) throw new Error('Caso no encontrado');
+  if (!(await leerExcel()).casos.some(c => c.id === id)) throw new Error('Caso no encontrado');
   await actualizarJson<SeguimientosApp>(ARCHIVO_SEGUIMIENTOS, () => ({}), app => {
     const reg: RegistroApp = app[id] ?? { controles: [], actualizadoEn: '' };
     reg.ipsAtencionPrimaria = valor.trim().slice(0, 150);

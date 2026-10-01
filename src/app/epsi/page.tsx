@@ -39,6 +39,11 @@ export default async function VistaEpsi({ searchParams }: { searchParams: Promis
     <>
       <Encabezado sesion={sesion} fechaCorte={base.fechaCorte} almacenamiento={base.almacenamiento} />
       <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6">
+        {!base.baseDisponible && (
+          <p className="tarjeta border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+            Todavía no hay una base de seguimiento cargada. El administrador debe cargar el Excel en <b>Administración → Base de seguimiento DNT</b>.
+          </p>
+        )}
         <FiltrosCascada combinaciones={combinaciones} valores={filtroGeo} total={casos.length} />
         <div className="-mt-3 flex flex-wrap justify-end gap-2">
           <a href={`/api/exportar-matriz?${aQueryString(filtroGeo)}`} className="boton-sec gap-2" download

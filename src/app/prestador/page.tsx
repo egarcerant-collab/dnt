@@ -29,6 +29,11 @@ export default async function VistaPrestador({ searchParams }: { searchParams: P
     <>
       <Encabezado sesion={sesion} fechaCorte={base.fechaCorte} almacenamiento={base.almacenamiento} />
       <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6">
+        {!base.baseDisponible && (
+          <p className="tarjeta border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+            Todavía no hay una base de seguimiento cargada. El administrador debe cargar el Excel en <b>Administración → Base de seguimiento DNT</b>.
+          </p>
+        )}
         {sesion.rol === 'admin' && <SelectorIps opciones={listaIps} valor={ips!} />}
         {pendientes > 0 && (
           <Link href="/notificaciones" className="tarjeta flex items-center justify-between border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">

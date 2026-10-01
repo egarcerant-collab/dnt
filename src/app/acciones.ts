@@ -91,7 +91,7 @@ export async function accionEnviarMensaje(_prev: EstadoAccion, form: FormData): 
   let tipo = String(form.get('tipo') ?? 'notificacion') as TipoMensaje;
 
   if (casoId) {
-    const caso = leerExcel().casos.find(c => c.id === casoId);
+    const caso = (await leerExcel()).casos.find(c => c.id === casoId);
     if (!caso) return { ok: false, mensaje: 'Caso no encontrado' };
     ips = caso.ipsSeguimiento;
   }

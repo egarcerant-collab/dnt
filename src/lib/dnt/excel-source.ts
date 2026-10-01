@@ -149,20 +149,64 @@ export interface DatosExcel {
   filas: Map<string, unknown[]>;
   /** Instituciones notificadoras (nombre y NIT) reportadas en SIVIGILA. */
   upgd: UpgdSivigila[];
+  /** false cuando todavía no se ha cargado ninguna base. */
+  disponible: boolean;
+  origen: 'archivo-local' | 'almacenamiento' | 'ninguno';
 }
 
-let cache: { mtime: number; datos: DatosExcel } | null = null;
+/** Nombre de la base dentro del almacenamiento (Google Drive en producción). */
+export const ARCHIVO_BASE = 'base-dnt.xlsx';
+const TTL_ALMACENAMIENTO_MS = 5 * 60_000;
+
+const VACIO: DatosExcel = { casos: [], sivigila: new Map(), hojaSivigila: null, filas: new Map(), upgd: [], disponible: false, origen: 'ninguno' };
+
+const g = globalThis as { __dntBase?: { clave: string; hasta: number; datos: DatosExcel } };
 
 export function rutaExcel(): string {
   return process.env.DNT_EXCEL_PATH || path.join(process.cwd(), 'data', 'raw', 'BASE_DNT_SEM36_2026.xlsx');
 }
 
-export function leerExcel(): DatosExcel {
-  const ruta = rutaExcel();
-  const mtime = fs.statSync(ruta).mtimeMs;
-  if (cache && cache.mtime === mtime) return cache.datos;
+/** Fuerza a releer la base (tras cargar una nueva desde Administración). */
+export function invalidarBase() {
+  g.__dntBase = undefined;
+}
 
-  const wb = XLSX.read(fs.readFileSync(ruta), { cellDates: true });
+/** Verifica que un archivo subido sea la matriz de seguimiento DNT. */
+export function validarLibroBase(contenido: Buffer): string | null {
+  if (contenido.subarray(0, 2).toString('latin1') !== 'PK') return 'El archivo no es un Excel (.xlsx)';
+  try {
+    const wb = XLSX.read(contenido, { bookSheets: true });
+    if (!wb.SheetNames.includes(HOJA_SEGUIMIENTO)) return `El libro no tiene la hoja "${HOJA_SEGUIMIENTO}"`;
+  } catch {
+    return 'No se pudo leer el Excel';
+  }
+  return null;
+}
+
+/**
+ * Lee la base de seguimiento: archivo local (DNT_EXCEL_PATH, desarrollo) o, si no existe,
+ * la última base cargada al almacenamiento (Google Drive en producción, p. ej. Vercel).
+ */
+export async function leerExcel(): Promise<DatosExcel> {
+  const ruta = rutaExcel();
+  if (fs.existsSync(ruta)) {
+    const clave = `local:${fs.statSync(ruta).mtimeMs}`;
+    if (g.__dntBase?.clave === clave) return g.__dntBase.datos;
+    const datos = procesarLibro(fs.readFileSync(ruta), 'archivo-local');
+    g.__dntBase = { clave, hasta: Infinity, datos };
+    return datos;
+  }
+
+  if (g.__dntBase && g.__dntBase.clave === 'almacenamiento' && g.__dntBase.hasta > Date.now()) return g.__dntBase.datos;
+  const { getStore } = await import('./store');
+  const contenido = await getStore().leerArchivo(ARCHIVO_BASE);
+  const datos = contenido ? procesarLibro(contenido, 'almacenamiento') : VACIO;
+  g.__dntBase = { clave: 'almacenamiento', hasta: Date.now() + TTL_ALMACENAMIENTO_MS, datos };
+  return datos;
+}
+
+function procesarLibro(contenido: Buffer, origen: DatosExcel['origen']): DatosExcel {
+  const wb = XLSX.read(contenido, { cellDates: true });
   const filas = XLSX.utils
     .sheet_to_json<unknown[]>(wb.Sheets[HOJA_SEGUIMIENTO], { header: 1, defval: null, raw: true })
     .slice(FILA_INICIO_DATOS)
@@ -229,7 +273,5 @@ export function leerExcel(): DatosExcel {
       });
   }
 
-  const datos = { casos, sivigila, hojaSivigila, filas: filasPorId, upgd };
-  cache = { mtime, datos };
-  return datos;
+  return { casos, sivigila, hojaSivigila, filas: filasPorId, upgd, disponible: true, origen };
 }
