@@ -1,0 +1,15 @@
+# Datos sensibles de salud (menores de edad) - NUNCA versionar
+data/
+*.xlsx
+*.xls
+*.csv
+.env*
+*.pem
+openssh*
+node_modules/
+.next/
+.claude/settings.local.json
+next-env.d.ts
+*.tsbuildinfo
+!.env.example
+!plantillas/*.xlsx

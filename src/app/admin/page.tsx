@@ -1,0 +1,65 @@
+import { redirect } from 'next/navigation';
+import { TablaPrestadores } from '@/components/admin-prestadores';
+import { FormNuevoUsuario, AccionesUsuario } from '@/components/admin-usuarios';
+import { aPublico, listarPrestadores } from '@/lib/prestadores';
+import { Encabezado } from '@/components/encabezado';
+import { obtenerBase } from '@/lib/dnt/repositorio';
+import { getSesion } from '@/lib/sesion';
+import { listarUsuarios, sinHash } from '@/lib/usuarios';
+
+export const dynamic = 'force-dynamic';
+
+const ETIQUETA = { admin: 'Administrador', epsi: 'Funcionario EPSI', prestador: 'Prestador' } as const;
+
+export default async function Administracion() {
+  const sesion = await getSesion();
+  if (!sesion) redirect('/');
+  if (sesion.rol !== 'admin') redirect('/');
+
+  const [base, usuarios, prestadores] = await Promise.all([obtenerBase(), listarUsuarios(), listarPrestadores()]);
+  const casosPorIps = new Map<string, number>();
+  base.casos.forEach(c => casosPorIps.set(c.ipsSeguimiento, (casosPorIps.get(c.ipsSeguimiento) ?? 0) + 1));
+  const filasPrestadores = prestadores.map(aPublico).map(p => ({ ...p, casos: casosPorIps.get(p.ips) ?? 0 }));
+
+  return (
+    <>
+      <Encabezado sesion={sesion} fechaCorte={base.fechaCorte} almacenamiento={base.almacenamiento} />
+      <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6">
+        <h1 className="text-2xl font-bold text-marca-900">Administración</h1>
+        <TablaPrestadores prestadores={filasPrestadores} />
+        <h2 className="mt-2 text-lg font-semibold text-marca-900">Usuarios EPSI</h2>
+        <FormNuevoUsuario />
+
+        <section className="tarjeta overflow-x-auto">
+          <h2 className="border-b border-slate-100 p-4 font-semibold">Usuarios registrados ({usuarios.length})</h2>
+          <table className="w-full text-sm">
+            <thead className="bg-marca-50 text-left text-xs uppercase text-marca-900">
+              <tr>
+                <th className="px-3 py-2">Usuario</th><th className="px-3 py-2">Nombre</th><th className="px-3 py-2">Rol</th>
+                <th className="px-3 py-2">IPS</th><th className="px-3 py-2">Creado</th><th className="px-3 py-2">Estado</th>
+                <th className="px-3 py-2">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {usuarios.map(sinHash).map(u => (
+                <tr key={u.id}>
+                  <td className="px-3 py-2 font-mono">{u.usuario}</td>
+                  <td className="px-3 py-2">{u.nombre}</td>
+                  <td className="px-3 py-2">{ETIQUETA[u.rol]}</td>
+                  <td className="px-3 py-2 text-xs">{u.ips ?? '—'}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{new Date(u.creadoEn).toLocaleDateString('es-CO', { timeZone: 'America/Bogota' })}</td>
+                  <td className="px-3 py-2">
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${u.activo ? 'bg-marca-100 text-marca-800' : 'bg-slate-200 text-slate-600'}`}>
+                      {u.activo ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2"><AccionesUsuario id={u.id} activo={u.activo} esYo={u.id === sesion.id} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </>
+  );
+}

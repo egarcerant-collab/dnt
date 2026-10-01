@@ -1,0 +1,128 @@
+import 'server-only';
+import crypto from 'crypto';
+import { getStore } from './dnt/store';
+
+export type RolUsuario = 'admin' | 'epsi' | 'prestador';
+
+export interface Usuario {
+  id: string;
+  usuario: string;
+  nombre: string;
+  rol: RolUsuario;
+  ips?: string;
+  hash: string;
+  activo: boolean;
+  creadoEn: string;
+}
+
+export type UsuarioPublico = Omit<Usuario, 'hash'>;
+
+const ARCHIVO = 'usuarios.json';
+const ITERACIONES = 210_000; // PBKDF2-SHA512, recomendación OWASP
+
+export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(password, salt, ITERACIONES, 64, 'sha512').toString('hex');
+  return `pbkdf2$${ITERACIONES}$${salt}$${hash}`;
+}
+
+export function verificarPassword(password: string, almacenado: string): boolean {
+  const [alg, iter, salt, hash] = almacenado.split('$');
+  if (alg !== 'pbkdf2' || !salt || !hash) return false;
+  const intento = crypto.pbkdf2Sync(password, salt, Number(iter), 64, 'sha512');
+  const esperado = Buffer.from(hash, 'hex');
+  return intento.length === esperado.length && crypto.timingSafeEqual(intento, esperado);
+}
+
+/** Acepta 'usuario' o 'usuario@dusakawiepsi.com'. */
+const normalizarUsuario = (u: string) => u.trim().toLowerCase().replace(/@dusakawiepsi\.com$/, '');
+
+/**
+ * Carga usuarios. Si no existe ninguno, crea el administrador inicial
+ * desde ADMIN_USUARIO / ADMIN_PASSWORD (.env.local, nunca en el código).
+ */
+export async function listarUsuarios(): Promise<Usuario[]> {
+  const store = getStore();
+  const usuarios = (await store.leer<Usuario[]>(ARCHIVO)) ?? [];
+  if (usuarios.length === 0 && process.env.ADMIN_USUARIO && process.env.ADMIN_PASSWORD) {
+    usuarios.push({
+      id: crypto.randomUUID(),
+      usuario: normalizarUsuario(process.env.ADMIN_USUARIO),
+      nombre: process.env.ADMIN_NOMBRE || process.env.ADMIN_USUARIO,
+      rol: 'admin',
+      hash: hashPassword(process.env.ADMIN_PASSWORD),
+      activo: true,
+      creadoEn: new Date().toISOString(),
+    });
+    await store.escribir(ARCHIVO, usuarios);
+  }
+  return usuarios;
+}
+
+export const sinHash = ({ hash: _hash, ...u }: Usuario): UsuarioPublico => u;
+
+// ── Bloqueo por intentos fallidos (en memoria del proceso) ─────────────
+const MAX_INTENTOS = 5;
+const BLOQUEO_MS = 5 * 60_000;
+const g = globalThis as { __dntIntentos?: Map<string, { n: number; hasta: number }> };
+const intentos = (g.__dntIntentos ??= new Map());
+
+export const estaBloqueado = (clave: string) => (intentos.get(clave)?.hasta ?? 0) > Date.now();
+export function registrarFallo(clave: string) {
+  const n = (intentos.get(clave)?.n ?? 0) + 1;
+  intentos.set(clave, { n, hasta: n >= MAX_INTENTOS ? Date.now() + BLOQUEO_MS : 0 });
+}
+export const limpiarIntentos = (clave: string) => intentos.delete(clave);
+
+export type ResultadoLogin = { ok: true; usuario: Usuario } | { ok: false; motivo: 'credenciales' | 'bloqueado' | 'inactivo' };
+
+export async function autenticar(usuario: string, password: string): Promise<ResultadoLogin> {
+  const clave = normalizarUsuario(usuario);
+  if (estaBloqueado(clave)) return { ok: false, motivo: 'bloqueado' };
+
+  const u = (await listarUsuarios()).find(x => x.usuario === clave);
+  // Se verifica siempre un hash para no revelar si el usuario existe por tiempo de respuesta
+  const valido = verificarPassword(password, u?.hash ?? 'pbkdf2$210000$00$00');
+  if (!u || !valido) {
+    registrarFallo(clave);
+    return { ok: false, motivo: 'credenciales' };
+  }
+  limpiarIntentos(clave);
+  if (!u.activo) return { ok: false, motivo: 'inactivo' };
+  return { ok: true, usuario: u };
+}
+
+export async function crearUsuario(datos: { usuario: string; nombre: string; rol: RolUsuario; ips?: string; password: string }) {
+  const usuarios = await listarUsuarios();
+  const usuario = normalizarUsuario(datos.usuario);
+  if (!/^[a-z0-9._-]{3,40}$/.test(usuario)) throw new Error('Usuario inválido (3–40 caracteres: letras, números, punto, guion)');
+  if (usuarios.some(u => u.usuario === usuario)) throw new Error('Ese usuario ya existe');
+  if (datos.password.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres');
+  if (datos.rol === 'prestador' && !datos.ips) throw new Error('Un prestador debe tener IPS asignada');
+  usuarios.push({
+    id: crypto.randomUUID(),
+    usuario,
+    nombre: datos.nombre.trim(),
+    rol: datos.rol,
+    ips: datos.rol === 'prestador' ? datos.ips : undefined,
+    hash: hashPassword(datos.password),
+    activo: true,
+    creadoEn: new Date().toISOString(),
+  });
+  await getStore().escribir(ARCHIVO, usuarios);
+}
+
+export async function actualizarUsuario(id: string, cambios: { activo?: boolean; password?: string }) {
+  const usuarios = await listarUsuarios();
+  const u = usuarios.find(x => x.id === id);
+  if (!u) throw new Error('Usuario no encontrado');
+  if (cambios.activo === false && u.rol === 'admin' && usuarios.filter(x => x.rol === 'admin' && x.activo).length === 1) {
+    throw new Error('No se puede desactivar el único administrador');
+  }
+  if (cambios.activo !== undefined) u.activo = cambios.activo;
+  if (cambios.password) {
+    if (cambios.password.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres');
+    u.hash = hashPassword(cambios.password);
+  }
+  await getStore().escribir(ARCHIVO, usuarios);
+}
