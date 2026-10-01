@@ -19,8 +19,9 @@ export default async function VistaPrestador({ searchParams }: { searchParams: P
   const base = await obtenerBase();
   const listaIps = [...new Set(base.casos.map(c => c.ipsSeguimiento))].sort();
   // El prestador solo ve su IPS; el administrador elige cualquiera
-  const conMasCasos = listaIps.reduce((a, b) =>
-    base.casos.filter(c => c.ipsSeguimiento === b).length > base.casos.filter(c => c.ipsSeguimiento === a).length ? b : a);
+  const casosPorIps = new Map<string, number>();
+  base.casos.forEach(c => casosPorIps.set(c.ipsSeguimiento, (casosPorIps.get(c.ipsSeguimiento) ?? 0) + 1));
+  const conMasCasos = listaIps.reduce<string | undefined>((a, b) => (!a || (casosPorIps.get(b) ?? 0) > (casosPorIps.get(a) ?? 0) ? b : a), undefined);
   const ips = sesion.rol === 'prestador' ? sesion.ips : ((await searchParams).ips ?? conMasCasos);
   const filas = base.casos.filter(c => c.ipsSeguimiento === ips).map(aFila);
   const pendientes = sesion.rol === 'prestador' ? noLeidos(await listarMensajes(), 'prestador', sesion.ips).length : 0;

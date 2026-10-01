@@ -182,8 +182,49 @@ export function getStore(): JsonStore {
   if (instancia) return instancia;
   const folderId = process.env.GDRIVE_FOLDER_ID;
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  instancia = folderId && raw ? new DriveStore(folderId, JSON.parse(raw)) : new LocalStore();
+  if (folderId && raw) {
+    let credenciales: { client_email?: string; private_key?: string };
+    try {
+      credenciales = JSON.parse(raw);
+    } catch {
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON no es un JSON válido: pegue el contenido completo del archivo .json');
+    }
+    if (!credenciales.client_email || !credenciales.private_key) {
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON no tiene client_email o private_key: use la clave JSON de la cuenta de servicio');
+    }
+    instancia = new DriveStore(folderId, credenciales);
+  } else {
+    instancia = new LocalStore();
+  }
   return instancia;
+}
+
+/** Diagnóstico de la conexión con el almacenamiento (sin exponer secretos). */
+export async function diagnosticarStore(): Promise<Record<string, unknown>> {
+  const r: Record<string, unknown> = {
+    GDRIVE_FOLDER_ID: process.env.GDRIVE_FOLDER_ID ? 'configurado' : 'FALTA',
+    GOOGLE_SERVICE_ACCOUNT_JSON: process.env.GOOGLE_SERVICE_ACCOUNT_JSON ? 'configurado' : 'FALTA',
+  };
+  try {
+    const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+    if (raw) r.cuentaServicio = JSON.parse(raw).client_email ?? 'sin client_email';
+  } catch {
+    r.cuentaServicio = 'JSON inválido';
+  }
+  try {
+    const store = getStore();
+    r.almacenamiento = store.tipo;
+    await store.leer('diagnostico.json');
+    await store.escribir('diagnostico.json', { ultimaPrueba: new Date().toISOString() });
+    r.lecturaEscritura = 'OK';
+  } catch (e) {
+    const msg = (e as Error).message;
+    r.lecturaEscritura = 'ERROR';
+    r.detalle = /not found|File not found|404/i.test(msg)
+      ? 'La cuenta de servicio no tiene acceso a la carpeta: compártala como Editor con el correo de cuentaServicio'
+      : msg;
+  }
+  return r;
 }
 
 // ── Escritura serializada por archivo ──────────────────────────────────
