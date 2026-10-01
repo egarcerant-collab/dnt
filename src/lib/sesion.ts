@@ -24,7 +24,12 @@ export const DURACION_SEG = 60 * 60 * 10;
 const g = globalThis as { __dntSecreto?: string };
 function secreto(): string {
   if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
-  if (process.env.NODE_ENV === 'production') throw new Error('Falta la variable SESSION_SECRET en el servidor');
+  // Sin SESSION_SECRET se deriva una clave de ADMIN_PASSWORD (scrypt), igual en todas las instancias.
+  // Recomendado: definir SESSION_SECRET propio en producción.
+  if (process.env.ADMIN_PASSWORD) {
+    return (g.__dntSecreto ??= crypto.scryptSync(process.env.ADMIN_PASSWORD, 'dnt-dusakawi-sesion', 32).toString('hex'));
+  }
+  if (process.env.NODE_ENV === 'production') throw new Error('Falta la variable ADMIN_PASSWORD (o SESSION_SECRET) en el servidor');
   return (g.__dntSecreto ??= crypto.randomBytes(32).toString('hex'));
 }
 

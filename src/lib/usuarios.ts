@@ -49,11 +49,15 @@ export async function listarUsuarios(): Promise<Usuario[]> {
   const store = getStore();
   const usuarios = (await store.leer<Usuario[]>(ARCHIVO)) ?? [];
   const hayAdmin = usuarios.some(u => u.rol === 'admin' && !u.pendiente);
-  if (!hayAdmin && process.env.ADMIN_USUARIO && process.env.ADMIN_PASSWORD && !usuarios.some(u => u.usuario === normalizarUsuario(process.env.ADMIN_USUARIO!))) {
+  const usuarioAdmin = normalizarUsuario(process.env.ADMIN_USUARIO || 'egarcerant');
+  if (!hayAdmin && process.env.ADMIN_PASSWORD) {
+    // Una solicitud de registro pendiente con el mismo usuario no puede bloquear al administrador
+    const i = usuarios.findIndex(u => u.usuario === usuarioAdmin);
+    if (i >= 0) usuarios.splice(i, 1);
     usuarios.push({
       id: crypto.randomUUID(),
-      usuario: normalizarUsuario(process.env.ADMIN_USUARIO),
-      nombre: process.env.ADMIN_NOMBRE || process.env.ADMIN_USUARIO,
+      usuario: usuarioAdmin,
+      nombre: process.env.ADMIN_NOMBRE || 'Eduardo Garcerant',
       rol: 'admin',
       hash: hashPassword(process.env.ADMIN_PASSWORD),
       activo: true,
