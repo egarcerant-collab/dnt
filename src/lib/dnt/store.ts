@@ -67,77 +67,114 @@ class DriveStore implements JsonStore {
   readonly tipo = 'drive' as const;
   constructor(private folderId: string, private credenciales: object) {}
 
+  private carpetas = new Map<string, Promise<string>>();
+
   private async drive() {
     const { google } = await import('googleapis');
     const auth = new google.auth.GoogleAuth({
       credentials: this.credenciales,
-      scopes: ['https://www.googleapis.com/auth/drive.file'],
+      // La cuenta de servicio solo ve las carpetas compartidas con ella
+      scopes: ['https://www.googleapis.com/auth/drive'],
     });
     return google.drive({ version: 'v3', auth });
   }
 
-  private async buscarId(nombre: string): Promise<string | null> {
+  /** Subcarpeta de DESNUTRICION según el tipo de archivo. */
+  private static carpetaPara(nombre: string): string {
+    if (nombre.endsWith('.xlsx')) return CARPETAS_DRIVE.base;
+    if (/\.(pdf|jpg|png)$/.test(nombre)) return CARPETAS_DRIVE.historias;
+    return CARPETAS_DRIVE.datos;
+  }
+
+  /** Id de la subcarpeta (la crea si no existe). Se memoriza por proceso. */
+  private carpetaId(nombreCarpeta: string): Promise<string> {
+    let id = this.carpetas.get(nombreCarpeta);
+    if (!id) {
+      id = (async () => {
+        const drive = await this.drive();
+        const res = await drive.files.list({
+          q: `'${this.folderId}' in parents and name='${nombreCarpeta}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+          fields: 'files(id)',
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true,
+        });
+        const existente = res.data.files?.[0]?.id;
+        if (existente) return existente;
+        const creada = await drive.files.create({
+          requestBody: { name: nombreCarpeta, parents: [this.folderId], mimeType: 'application/vnd.google-apps.folder' },
+          fields: 'id',
+          supportsAllDrives: true,
+        });
+        return creada.data.id!;
+      })();
+      id.catch(() => this.carpetas.delete(nombreCarpeta));
+      this.carpetas.set(nombreCarpeta, id);
+    }
+    return id;
+  }
+
+  private async buscarId(nombre: string): Promise<{ id: string | null; carpeta: string }> {
+    const carpeta = await this.carpetaId(DriveStore.carpetaPara(nombre));
     const drive = await this.drive();
     const seguro = nombre.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     const res = await drive.files.list({
-      q: `'${this.folderId}' in parents and name='${seguro}' and trashed=false`,
+      q: `'${carpeta}' in parents and name='${seguro}' and trashed=false`,
       fields: 'files(id)',
       supportsAllDrives: true,
       includeItemsFromAllDrives: true,
     });
-    return res.data.files?.[0]?.id ?? null;
+    return { id: res.data.files?.[0]?.id ?? null, carpeta };
   }
 
-  async leer<T>(nombre: string): Promise<T | null> {
-    const id = await this.buscarId(nombre);
-    if (!id) return null;
+  private async descargar(id: string): Promise<Buffer> {
     const drive = await this.drive();
     const res = await drive.files.get({ fileId: id, alt: 'media', supportsAllDrives: true }, { responseType: 'arraybuffer' });
-    return JSON.parse(Buffer.from(res.data as ArrayBuffer).toString('utf-8')) as T;
+    return Buffer.from(res.data as ArrayBuffer);
   }
 
-  async escribir(nombre: string, data: unknown): Promise<void> {
-    const drive = await this.drive();
-    const media = { mimeType: 'application/json', body: Readable.from([JSON.stringify(data, null, 2)]) };
-    const id = await this.buscarId(nombre);
-    if (id) {
-      await drive.files.update({ fileId: id, media, supportsAllDrives: true });
-    } else {
-      await drive.files.create({
-        requestBody: { name: nombre, parents: [this.folderId], mimeType: 'application/json' },
-        media,
-        fields: 'id',
-        supportsAllDrives: true,
-      });
-    }
-  }
-
-  async guardarArchivo(nombre: string, contenido: Buffer, mime: string): Promise<void> {
-    if (!NOMBRE_SEGURO.test(nombre)) throw new Error('Nombre de archivo inválido');
+  private async subir(nombre: string, contenido: Buffer | string, mime: string): Promise<void> {
     const drive = await this.drive();
     const media = { mimeType: mime, body: Readable.from([contenido]) };
-    const id = await this.buscarId(nombre);
+    const { id, carpeta } = await this.buscarId(nombre);
     if (id) {
       await drive.files.update({ fileId: id, media, supportsAllDrives: true });
       return;
     }
     await drive.files.create({
-      requestBody: { name: nombre, parents: [this.folderId], mimeType: mime },
+      requestBody: { name: nombre, parents: [carpeta], mimeType: mime },
       media,
       fields: 'id',
       supportsAllDrives: true,
     });
   }
 
+  async leer<T>(nombre: string): Promise<T | null> {
+    const { id } = await this.buscarId(nombre);
+    return id ? (JSON.parse((await this.descargar(id)).toString('utf-8')) as T) : null;
+  }
+
+  async escribir(nombre: string, data: unknown): Promise<void> {
+    await this.subir(nombre, JSON.stringify(data, null, 2), 'application/json');
+  }
+
+  async guardarArchivo(nombre: string, contenido: Buffer, mime: string): Promise<void> {
+    if (!NOMBRE_SEGURO.test(nombre)) throw new Error('Nombre de archivo inválido');
+    await this.subir(nombre, contenido, mime);
+  }
+
   async leerArchivo(nombre: string): Promise<Buffer | null> {
     if (!NOMBRE_SEGURO.test(nombre)) throw new Error('Nombre de archivo inválido');
-    const id = await this.buscarId(nombre);
-    if (!id) return null;
-    const drive = await this.drive();
-    const res = await drive.files.get({ fileId: id, alt: 'media', supportsAllDrives: true }, { responseType: 'arraybuffer' });
-    return Buffer.from(res.data as ArrayBuffer);
+    const { id } = await this.buscarId(nombre);
+    return id ? this.descargar(id) : null;
   }
 }
+
+/** Estructura de carpetas dentro de la carpeta raíz de Drive (GDRIVE_FOLDER_ID). */
+export const CARPETAS_DRIVE = {
+  base: '01_BASE_SEGUIMIENTO',
+  historias: '02_HISTORIAS_CLINICAS',
+  datos: '03_DATOS_APP',
+} as const;
 
 let instancia: JsonStore | null = null;
 
