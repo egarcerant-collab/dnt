@@ -48,7 +48,7 @@ export default async function VistaPrestador({ searchParams }: { searchParams: P
             <span className="font-semibold">Ver →</span>
           </Link>
         )}
-        <PanelPrestador filas={filas} fechaCorte={base.fechaCorte} />
+        <PanelPrestador key={ips} filas={filas} fechaCorte={base.fechaCorte} />
       </main>
     </>
   );

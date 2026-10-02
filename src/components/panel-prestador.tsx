@@ -13,9 +13,21 @@ const esAlta = (f: FilaCaso) => f.alertas.some(a => ALERTAS[a].nivel === 'alta')
 const diasDesde = (iso: string | null, corte: string) =>
   iso ? Math.round((new Date(corte).getTime() - new Date(iso).getTime()) / 864e5) : null;
 
-export function PanelPrestador({ filas, fechaCorte }: { filas: FilaCaso[]; fechaCorte: string }) {
+export function PanelPrestador({ filas: todas, fechaCorte }: { filas: FilaCaso[]; fechaCorte: string }) {
   const [pestana, setPestana] = useState<Pestana>('prioridad');
   const [q, setQ] = useState('');
+  const [municipio, setMunicipio] = useState('');
+
+  // Sedes (municipios) donde la IPS tiene niños, con su número de casos
+  const sedes = useMemo(() => {
+    const m = new Map<string, number>();
+    todas.forEach(f => m.set(f.municipio || 'SIN MUNICIPIO', (m.get(f.municipio || 'SIN MUNICIPIO') ?? 0) + 1));
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [todas]);
+  const filas = useMemo(
+    () => (municipio ? todas.filter(f => (f.municipio || 'SIN MUNICIPIO') === municipio) : todas),
+    [todas, municipio],
+  );
 
   const activos = filas.filter(f => !CERRADOS.includes(f.estado));
   const prioridad = filas.filter(esAlta);
@@ -33,7 +45,7 @@ export function PanelPrestador({ filas, fechaCorte }: { filas: FilaCaso[]; fecha
   }, [pestana, q, filas, fechaCorte]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tarjetas = [
-    { t: 'Mis niños', v: filas.length, s: 'Asignados a la IPS' },
+    { t: 'Mis niños', v: filas.length, s: municipio ? `Sede ${municipio}` : 'Asignados a la IPS' },
     { t: 'Activos', v: activos.length, s: 'En tratamiento o sin estado' },
     { t: 'Atención prioritaria', v: prioridad.length, s: 'Sin control o control vencido', alerta: prioridad.length > 0 },
     { t: 'Recuperados', v: filas.filter(f => f.estado === 'RECUPERADO').length, s: 'Egresos exitosos' },
@@ -41,6 +53,22 @@ export function PanelPrestador({ filas, fechaCorte }: { filas: FilaCaso[]; fecha
 
   return (
     <div className="flex flex-col gap-6">
+      {sedes.length > 1 && (
+        <div className="tarjeta flex flex-wrap items-center gap-2 p-3 text-sm">
+          <span className="etiqueta mr-1">Sede / municipio</span>
+          {[['', todas.length] as [string, number], ...sedes].map(([nombre, n]) => (
+            <button
+              key={nombre || 'todas'}
+              onClick={() => setMunicipio(nombre)}
+              aria-pressed={municipio === nombre}
+              className={`rounded-full border px-3 py-1 ${municipio === nombre ? 'border-marca-600 bg-marca-600 font-semibold text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-marca-50'}`}
+            >
+              {nombre || 'Todas las sedes'} <span className={municipio === nombre ? 'text-white/80' : 'text-slate-400'}>({n})</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {tarjetas.map(k => (
           <div key={k.t} className={`tarjeta p-4 ${k.alerta ? 'border-red-200 bg-red-50' : ''}`}>
