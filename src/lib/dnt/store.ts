@@ -11,7 +11,8 @@ import { Readable } from 'stream';
  */
 export interface JsonStore {
   readonly tipo: 'drive' | 'local';
-  leer<T>(nombre: string): Promise<T | null>;
+  /** `fresco` ignora la copia en memoria (para leer-modificar-escribir). */
+  leer<T>(nombre: string, opciones?: { fresco?: boolean }): Promise<T | null>;
   escribir(nombre: string, data: unknown): Promise<void>;
   /** Archivos binarios (historias clínicas). `nombre` lo genera el sistema, nunca el usuario. */
   guardarArchivo(nombre: string, contenido: Buffer, mime: string): Promise<void>;
@@ -68,15 +69,26 @@ class DriveStore implements JsonStore {
   constructor(private folderId: string, private credenciales: object) {}
 
   private carpetas = new Map<string, Promise<string>>();
+  /** Id de cada archivo en Drive (evita buscarlo en cada lectura). */
+  private ids = new Map<string, string>();
+  /** Copia en memoria de los JSON leídos; se actualiza al escribir. */
+  private cacheJson = new Map<string, { hasta: number; valor: unknown }>();
+  private static TTL_JSON_MS = 15_000;
+  private cliente?: Promise<import('googleapis').drive_v3.Drive>;
 
-  private async drive() {
-    const { google } = await import('googleapis');
-    const auth = new google.auth.GoogleAuth({
-      credentials: this.credenciales,
-      // La cuenta de servicio solo ve las carpetas compartidas con ella
-      scopes: ['https://www.googleapis.com/auth/drive'],
-    });
-    return google.drive({ version: 'v3', auth });
+  /** Un solo cliente autenticado por instancia: el token se reutiliza y se renueva solo. */
+  private drive() {
+    this.cliente ??= import('googleapis').then(({ google }) =>
+      google.drive({
+        version: 'v3',
+        auth: new google.auth.GoogleAuth({
+          credentials: this.credenciales,
+          // La cuenta de servicio solo ve las carpetas compartidas con ella
+          scopes: ['https://www.googleapis.com/auth/drive'],
+        }),
+      }),
+    );
+    return this.cliente;
   }
 
   /** Subcarpeta de DESNUTRICION según el tipo de archivo. */
@@ -115,6 +127,8 @@ class DriveStore implements JsonStore {
 
   private async buscarId(nombre: string): Promise<{ id: string | null; carpeta: string }> {
     const carpeta = await this.carpetaId(DriveStore.carpetaPara(nombre));
+    const conocido = this.ids.get(nombre);
+    if (conocido) return { id: conocido, carpeta };
     const drive = await this.drive();
     const seguro = nombre.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     const res = await drive.files.list({
@@ -123,13 +137,23 @@ class DriveStore implements JsonStore {
       supportsAllDrives: true,
       includeItemsFromAllDrives: true,
     });
-    return { id: res.data.files?.[0]?.id ?? null, carpeta };
+    const id = res.data.files?.[0]?.id ?? null;
+    if (id) this.ids.set(nombre, id); // los ids de Drive no cambian
+    return { id, carpeta };
   }
 
-  private async descargar(id: string): Promise<Buffer> {
+  private async descargar(nombre: string, id: string): Promise<Buffer | null> {
     const drive = await this.drive();
-    const res = await drive.files.get({ fileId: id, alt: 'media', supportsAllDrives: true }, { responseType: 'arraybuffer' });
-    return Buffer.from(res.data as ArrayBuffer);
+    try {
+      const res = await drive.files.get({ fileId: id, alt: 'media', supportsAllDrives: true }, { responseType: 'arraybuffer' });
+      return Buffer.from(res.data as ArrayBuffer);
+    } catch (e: any) {
+      if (e?.code === 404) {
+        this.ids.delete(nombre); // borrado manualmente en Drive
+        return null;
+      }
+      throw e;
+    }
   }
 
   private async subir(nombre: string, contenido: Buffer | string, mime: string): Promise<void> {
@@ -140,21 +164,28 @@ class DriveStore implements JsonStore {
       await drive.files.update({ fileId: id, media, supportsAllDrives: true });
       return;
     }
-    await drive.files.create({
+    const creado = await drive.files.create({
       requestBody: { name: nombre, parents: [carpeta], mimeType: mime },
       media,
       fields: 'id',
       supportsAllDrives: true,
     });
+    if (creado.data.id) this.ids.set(nombre, creado.data.id);
   }
 
-  async leer<T>(nombre: string): Promise<T | null> {
+  async leer<T>(nombre: string, opciones?: { fresco?: boolean }): Promise<T | null> {
+    const c = this.cacheJson.get(nombre);
+    if (!opciones?.fresco && c && c.hasta > Date.now()) return structuredClone(c.valor) as T | null;
     const { id } = await this.buscarId(nombre);
-    return id ? (JSON.parse((await this.descargar(id)).toString('utf-8')) as T) : null;
+    const contenido = id ? await this.descargar(nombre, id) : null;
+    const valor = contenido ? (JSON.parse(contenido.toString('utf-8')) as T) : null;
+    this.cacheJson.set(nombre, { hasta: Date.now() + DriveStore.TTL_JSON_MS, valor });
+    return structuredClone(valor);
   }
 
   async escribir(nombre: string, data: unknown): Promise<void> {
     await this.subir(nombre, JSON.stringify(data, null, 2), 'application/json');
+    this.cacheJson.set(nombre, { hasta: Date.now() + DriveStore.TTL_JSON_MS, valor: structuredClone(data) });
   }
 
   async guardarArchivo(nombre: string, contenido: Buffer, mime: string): Promise<void> {
@@ -165,7 +196,7 @@ class DriveStore implements JsonStore {
   async leerArchivo(nombre: string): Promise<Buffer | null> {
     if (!NOMBRE_SEGURO.test(nombre)) throw new Error('Nombre de archivo inválido');
     const { id } = await this.buscarId(nombre);
-    return id ? this.descargar(id) : null;
+    return id ? this.descargar(nombre, id) : null;
   }
 }
 
@@ -236,7 +267,7 @@ export function actualizarJson<T>(nombre: string, inicial: () => T, cambio: (dat
   const previa = colas.get(nombre) ?? Promise.resolve();
   const tarea = previa.catch(() => undefined).then(async () => {
     const store = getStore();
-    const datos = (await store.leer<T>(nombre)) ?? inicial();
+    const datos = (await store.leer<T>(nombre, { fresco: true })) ?? inicial();
     await cambio(datos);
     await store.escribir(nombre, datos);
     return datos;

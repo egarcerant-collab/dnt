@@ -156,7 +156,7 @@ export interface DatosExcel {
 
 /** Nombre de la base dentro del almacenamiento (Google Drive en producción). */
 export const ARCHIVO_BASE = 'base-dnt.xlsx';
-const TTL_ALMACENAMIENTO_MS = 5 * 60_000;
+const TTL_ALMACENAMIENTO_MS = 15 * 60_000; // la carga desde Administración invalida al instante
 
 const VACIO: DatosExcel = { casos: [], sivigila: new Map(), hojaSivigila: null, filas: new Map(), upgd: [], disponible: false, origen: 'ninguno' };
 

@@ -52,9 +52,10 @@ export interface Base {
 }
 
 export async function obtenerBase(): Promise<Base> {
-  const excel = await leerExcel();
   const store = getStore();
-  const app = (await store.leer<SeguimientosApp>(ARCHIVO_SEGUIMIENTOS)) ?? {};
+  // Base y controles se leen en paralelo
+  const [excel, appLeido] = await Promise.all([leerExcel(), store.leer<SeguimientosApp>(ARCHIVO_SEGUIMIENTOS)]);
+  const app = appLeido ?? {};
 
   const casos: Caso[] = excel.casos.map(base => {
     const reg = app[base.id];
