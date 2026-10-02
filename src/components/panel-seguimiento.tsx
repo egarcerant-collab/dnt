@@ -49,19 +49,33 @@ export function PanelSeguimiento({ filas, eventos, contactos }: {
   contactos: Record<string, { contacto?: ContactoIps; texto: string }>;
 }) {
   const [q, setQ] = useState('');
-  const [ips, setIps] = useState('');
+  const [geo, setGeo] = useState<{ depto: string; municipio: string; ips: string }>({ depto: '', municipio: '', ips: '' });
+  const { ips } = geo;
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [vista, setVista] = useState<'ninos' | 'actividad'>('ninos');
   const [abierto, setAbierto] = useState<string | null>(null);
   const [semaforo, setSemaforo] = useState<ClaveSemaforo | ''>('');
   const [nControles, setNControles] = useState('');
 
-  const listaIps = useMemo(() => [...new Set(filas.map(f => f.ips))].sort(), [filas]);
+  // Filtros en cascada departamento → municipio → IPS (cada lista muestra solo lo compatible)
+  type ClaveGeo = 'depto' | 'municipio' | 'ips';
+  const campo = (f: FilaTraza, k: ClaveGeo) => (k === 'depto' ? f.departamento : k === 'municipio' ? f.municipio : f.ips);
+  const compatible = (f: FilaTraza, v: typeof geo, excepto?: ClaveGeo) =>
+    (['depto', 'municipio', 'ips'] as ClaveGeo[]).every(k => k === excepto || !v[k] || campo(f, k) === v[k]);
+  const opciones = (k: ClaveGeo) => [...new Set(filas.filter(f => compatible(f, geo, k)).map(f => campo(f, k)))].filter(Boolean).sort();
+  function cambiarGeo(k: ClaveGeo, valor: string) {
+    const nuevo = { ...geo, [k]: valor };
+    // Si la combinación ya no existe, se limpian los otros filtros
+    (['depto', 'municipio', 'ips'] as ClaveGeo[]).forEach(o => {
+      if (o !== k && nuevo[o] && !filas.some(f => compatible(f, { depto: '', municipio: '', ips: '', [k]: valor, [o]: nuevo[o] }))) nuevo[o] = '';
+    });
+    setGeo(nuevo);
+  }
+  const geoFilas = useMemo(() => filas.filter(f => compatible(f, geo)), [filas, geo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visibles = useMemo(() => {
     const t = q.trim().toUpperCase();
-    return filas
-      .filter(f => !ips || f.ips === ips)
+    return geoFilas
       .filter(f => !semaforo || f.semaforo === semaforo)
       .filter(f => !nControles || grupoN(f) === nControles)
       .filter(f => !t || f.nombre.toUpperCase().includes(t) || f.documento.includes(t) || f.municipio.includes(t))
@@ -74,24 +88,29 @@ export function PanelSeguimiento({ filas, eventos, contactos }: {
         : true,
       )
       .sort((a, b) => (b.ultimoRegistroApp?.fecha ?? '').localeCompare(a.ultimoRegistroApp?.fecha ?? '') || a.porcentaje - b.porcentaje);
-  }, [filas, q, ips, filtro, semaforo, nControles]);
+  }, [geoFilas, q, filtro, semaforo, nControles]);
 
   const conteoControles = useMemo(() => {
     const r: Record<string, number> = {};
-    (ips ? filas.filter(f => f.ips === ips) : filas).forEach(f => (r[grupoN(f)] = (r[grupoN(f)] ?? 0) + 1));
+    geoFilas.forEach(f => (r[grupoN(f)] = (r[grupoN(f)] ?? 0) + 1));
     return r;
-  }, [filas, ips]);
+  }, [geoFilas]);
 
   const conteoSemaforo = useMemo(() => {
     const r: Partial<Record<ClaveSemaforo, number>> = {};
-    (ips ? filas.filter(f => f.ips === ips) : filas).forEach(f => (r[f.semaforo] = (r[f.semaforo] ?? 0) + 1));
+    geoFilas.forEach(f => (r[f.semaforo] = (r[f.semaforo] ?? 0) + 1));
     return r;
-  }, [filas, ips]);
+  }, [geoFilas]);
 
-  const eventosVisibles = useMemo(() => eventos.filter(e => !ips || e.ips === ips), [eventos, ips]);
+  const eventosVisibles = useMemo(() => {
+    if (!geo.depto && !geo.municipio && !geo.ips) return eventos;
+    const ids = new Set(geoFilas.map(f => f.id));
+    const ipsGeo = new Set(geoFilas.map(f => f.ips));
+    return eventos.filter(e => (e.casoId ? ids.has(e.casoId) : ipsGeo.has(e.ips)));
+  }, [eventos, geoFilas, geo]);
 
   const resumen = useMemo(() => {
-    const base = ips ? filas.filter(f => f.ips === ips) : filas;
+    const base = geoFilas;
     return {
       ninos: base.length,
       conRegistros: base.filter(f => f.controlesApp > 0).length,
@@ -100,7 +119,7 @@ export function PanelSeguimiento({ filas, eventos, contactos }: {
       promedio: base.length ? Math.round(base.reduce((s, f) => s + f.porcentaje, 0) / base.length) : 0,
       preguntas: base.reduce((s, f) => s + f.sinResponder, 0),
     };
-  }, [filas, ips]);
+  }, [geoFilas]);
 
   const tarjetas = [
     ['Niños', resumen.ninos],
@@ -122,12 +141,29 @@ export function PanelSeguimiento({ filas, eventos, contactos }: {
         ))}
       </div>
 
-      <div className="tarjeta flex flex-wrap items-center gap-3 p-3 text-sm">
+      <div className="tarjeta flex flex-wrap items-end gap-3 p-3 text-sm">
         <input className="input max-w-xs" placeholder="Buscar nombre, documento, municipio…" value={q} onChange={e => setQ(e.target.value)} />
-        <select className="input max-w-sm" value={ips} onChange={e => setIps(e.target.value)}>
-          <option value="">— Todos los prestadores —</option>
-          {listaIps.map(i => <option key={i} value={i}>{i}</option>)}
-        </select>
+        {(
+          [
+            ['depto', 'Departamento'],
+            ['municipio', 'Municipio'],
+            ['ips', 'IPS'],
+          ] as const
+        ).map(([k, t]) => {
+          const ops = opciones(k);
+          return (
+            <label key={k} className="flex min-w-44 flex-1 flex-col gap-1">
+              <span className="etiqueta">{t} <span className="normal-case text-slate-400">({ops.length})</span></span>
+              <select className="input" value={geo[k]} onChange={e => cambiarGeo(k, e.target.value)}>
+                <option value="">Todos</option>
+                {ops.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </label>
+          );
+        })}
+        {(geo.depto || geo.municipio || geo.ips) && (
+          <button onClick={() => setGeo({ depto: '', municipio: '', ips: '' })} className="boton-sec self-end">Limpiar</button>
+        )}
         <div className="ml-auto flex gap-1 rounded-lg bg-slate-100 p-1">
           {(['ninos', 'actividad'] as const).map(v => (
             <button key={v} onClick={() => setVista(v)} className={`rounded-md px-3 py-1.5 ${vista === v ? 'bg-white font-semibold shadow-sm' : 'text-slate-600'}`}>

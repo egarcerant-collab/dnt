@@ -10,6 +10,7 @@ export interface FilaTraza {
   tipoDocumento: string;
   documento: string;
   nombre: string;
+  departamento: string;
   municipio: string;
   ips: string;
   clasificacion: string;
@@ -95,6 +96,7 @@ export function construirTraza(casos: Caso[], historias: HistoriaClinica[], mens
       tipoDocumento: c.tipoDocumento,
       documento: c.documento,
       nombre: c.nombre,
+      departamento: c.departamento,
       municipio: c.municipio,
       ips: c.ipsSeguimiento,
       clasificacion: c.clasificacionNutricional,
