@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import type { EventoTraza, FilaTraza, TipoEvento } from '@/lib/dnt/traza';
-import { formatoFecha } from './ui';
+import { ORDEN_SEMAFORO, SEMAFORO, type ClaveSemaforo } from '@/lib/dnt/semaforo';
+import { EstadoBadge, formatoFecha } from './ui';
 
 type Filtro = 'todos' | 'con-registros' | 'sin-registros' | 'con-historia' | 'sin-historia' | 'preguntas';
 
@@ -43,6 +44,7 @@ export function PanelSeguimiento({ filas, eventos }: { filas: FilaTraza[]; event
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [vista, setVista] = useState<'ninos' | 'actividad'>('ninos');
   const [abierto, setAbierto] = useState<string | null>(null);
+  const [semaforo, setSemaforo] = useState<ClaveSemaforo | ''>('');
 
   const listaIps = useMemo(() => [...new Set(filas.map(f => f.ips))].sort(), [filas]);
 
@@ -50,6 +52,7 @@ export function PanelSeguimiento({ filas, eventos }: { filas: FilaTraza[]; event
     const t = q.trim().toUpperCase();
     return filas
       .filter(f => !ips || f.ips === ips)
+      .filter(f => !semaforo || f.semaforo === semaforo)
       .filter(f => !t || f.nombre.toUpperCase().includes(t) || f.documento.includes(t) || f.municipio.includes(t))
       .filter(f =>
         filtro === 'con-registros' ? f.controlesApp > 0 || f.historias.length > 0 || f.ax
@@ -60,7 +63,13 @@ export function PanelSeguimiento({ filas, eventos }: { filas: FilaTraza[]; event
         : true,
       )
       .sort((a, b) => (b.ultimoRegistroApp?.fecha ?? '').localeCompare(a.ultimoRegistroApp?.fecha ?? '') || a.porcentaje - b.porcentaje);
-  }, [filas, q, ips, filtro]);
+  }, [filas, q, ips, filtro, semaforo]);
+
+  const conteoSemaforo = useMemo(() => {
+    const r: Partial<Record<ClaveSemaforo, number>> = {};
+    (ips ? filas.filter(f => f.ips === ips) : filas).forEach(f => (r[f.semaforo] = (r[f.semaforo] ?? 0) + 1));
+    return r;
+  }, [filas, ips]);
 
   const eventosVisibles = useMemo(() => eventos.filter(e => !ips || e.ips === ips), [eventos, ips]);
 
@@ -113,6 +122,17 @@ export function PanelSeguimiento({ filas, eventos }: { filas: FilaTraza[]; event
 
       {vista === 'ninos' ? (
         <section className="tarjeta overflow-x-auto">
+          <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-3">
+            <span className="etiqueta mr-1">Semáforo</span>
+            <button onClick={() => setSemaforo('')} className={`rounded-full border px-3 py-1 text-xs ${semaforo === '' ? 'border-slate-700 bg-slate-700 font-semibold text-white' : 'border-slate-300'}`}>Todos</button>
+            {ORDEN_SEMAFORO.filter(k => conteoSemaforo[k]).map(k => (
+              <button key={k} onClick={() => setSemaforo(semaforo === k ? '' : k)} title={SEMAFORO[k].descripcion}
+                style={{ backgroundColor: SEMAFORO[k].color, color: SEMAFORO[k].texto }}
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${semaforo === k ? 'ring-2 ring-slate-800 ring-offset-1' : 'opacity-90'}`}>
+                {SEMAFORO[k].etiqueta} ({conteoSemaforo[k]})
+              </button>
+            ))}
+          </div>
           <div className="flex flex-wrap gap-2 border-b border-slate-100 p-3">
             {FILTROS.map(([k, t]) => (
               <button key={k} onClick={() => setFiltro(k)}
@@ -128,7 +148,7 @@ export function PanelSeguimiento({ filas, eventos }: { filas: FilaTraza[]; event
                 <th className="px-3 py-2">Tipo / ID</th>
                 <th className="px-3 py-2">Nombre</th>
                 <th className="px-3 py-2">Municipio / IPS</th>
-                <th className="px-3 py-2">Clasificación</th>
+                <th className="px-3 py-2">Estado (semáforo) / Clasificación</th>
                 <th className="px-3 py-2 text-center">Controles<br /><span className="font-normal normal-case">Excel · App</span></th>
                 <th className="px-3 py-2">Último registro del prestador</th>
                 <th className="px-3 py-2 text-center">AX</th>
@@ -180,7 +200,7 @@ function FilaNino({ f, abierto, onToggle }: { f: FilaTraza; abierto: boolean; on
         <td className="px-3 py-2 whitespace-nowrap"><span className="rounded bg-marca-50 px-1.5 py-0.5 text-xs font-bold text-marca-700">{f.tipoDocumento}</span> {f.documento}</td>
         <td className="px-3 py-2 font-medium">{f.nombre}</td>
         <td className="px-3 py-2 text-xs">{f.municipio}<span className="block text-slate-500">{f.ips}</span></td>
-        <td className="px-3 py-2 text-xs">{f.clasificacion}<span className="block text-slate-500">{f.estado}</span></td>
+        <td className="px-3 py-2 text-xs"><EstadoBadge estado={f.estado} z={f.ultimoZ} /><span className="mt-1 block text-slate-500">{f.clasificacion}</span></td>
         <td className="px-3 py-2 text-center">{f.controlesExcel} · <b className={f.controlesApp ? 'text-marca-700' : 'text-slate-400'}>{f.controlesApp}</b></td>
         <td className="px-3 py-2 text-xs">
           {f.ultimoRegistroApp ? (

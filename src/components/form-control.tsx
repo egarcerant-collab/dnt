@@ -149,7 +149,7 @@ export function FormControl({ casoId, profesional, ips, estadoActual, numeroSigu
           <Campo label="Estado del niño/a">
             <select name="estado" defaultValue="" className="input">
               <option value="">Sin cambio ({estadoActual})</option>
-              {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
+              {ESTADOS.map(e => <option key={e} value={e}>{e === 'RECAIDA' ? 'REINCIDENTE (RECAÍDA)' : e}</option>)}
             </select>
           </Campo>
         </div>

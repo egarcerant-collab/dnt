@@ -1,3 +1,5 @@
+import { semaforoCaso, ultimoZ } from './filtros';
+import type { ClaveSemaforo } from './semaforo';
 import type { HistoriaClinica } from './historias';
 import type { Mensaje } from './mensajes';
 import type { Caso } from './types';
@@ -12,6 +14,8 @@ export interface FilaTraza {
   ips: string;
   clasificacion: string;
   estado: string;
+  ultimoZ: number | null;
+  semaforo: ClaveSemaforo;
   porcentaje: number;
   pendientes: string[];
   controlesExcel: number;
@@ -92,6 +96,8 @@ export function construirTraza(casos: Caso[], historias: HistoriaClinica[], mens
       ips: c.ipsSeguimiento,
       clasificacion: c.clasificacionNutricional,
       estado: c.estado,
+      ultimoZ: ultimoZ(c),
+      semaforo: semaforoCaso(c).clave,
       ...completitud(c, hs.length > 0),
       controlesExcel: c.controles.length - app.length,
       controlesApp: app.length,

@@ -1,3 +1,4 @@
+import { semaforoDe } from './semaforo';
 import type { Caso, TipoAlerta } from './types';
 
 export interface FiltrosCasos {
@@ -8,7 +9,16 @@ export interface FiltrosCasos {
   clasificacion?: string; // clasificación nutricional detallada
   alerta?: string;
   edad?: string;
+  semaforo?: string; // clave del semáforo del estado actual
 }
+
+/** Último puntaje Z peso/talla registrado (o el de ingreso si no hay controles). */
+export function ultimoZ(c: Caso): number | null {
+  const conFecha = c.controles.filter(k => k.fecha && k.zPesoTalla != null).sort((a, b) => a.fecha!.localeCompare(b.fecha!));
+  return conFecha.at(-1)?.zPesoTalla ?? c.zIngreso;
+}
+
+export const semaforoCaso = (c: Caso) => semaforoDe(c.estado, ultimoZ(c));
 
 export function grupoEdad(c: Caso): string {
   const m = c.edadMeses;
@@ -26,7 +36,8 @@ export function filtrarCasos(casos: Caso[], f: FiltrosCasos): Caso[] {
       (!f.estado || c.estado === f.estado) &&
       (!f.clasificacion || c.clasificacionNutricional === f.clasificacion) &&
       (!f.alerta || c.alertas.includes(f.alerta as TipoAlerta)) &&
-      (!f.edad || grupoEdad(c) === f.edad),
+      (!f.edad || grupoEdad(c) === f.edad) &&
+      (!f.semaforo || semaforoCaso(c).clave === f.semaforo),
   );
 }
 

@@ -2,10 +2,11 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Encabezado } from '@/components/encabezado';
 import { FiltrosCascada } from '@/components/filtros-cascada';
-import { AlertaChip, EstadoBadge, SeveridadBadge, formatoFecha } from '@/components/ui';
+import { AlertaChip, EstadoBadge, LeyendaSemaforo, SeveridadBadge, formatoFecha } from '@/components/ui';
 import { calcularIndicadores, contarAlertas, type Indicador } from '@/lib/dnt/indicadores';
-import { aQueryString, filtrarCasos, grupoEdad } from '@/lib/dnt/filtros';
+import { aQueryString, filtrarCasos, grupoEdad, semaforoCaso, ultimoZ } from '@/lib/dnt/filtros';
 import { obtenerBase } from '@/lib/dnt/repositorio';
+import { ORDEN_SEMAFORO, SEMAFORO, type ClaveSemaforo } from '@/lib/dnt/semaforo';
 import { ALERTAS, type Caso, type TipoAlerta } from '@/lib/dnt/types';
 import { esEpsi, getSesion } from '@/lib/sesion';
 
@@ -65,7 +66,17 @@ export default async function VistaEpsi({ searchParams }: { searchParams: Promis
         <div className="grid gap-6 lg:grid-cols-3">
           <section className="tarjeta p-4">
             <h3 className="mb-3 font-semibold">Estado actual</h3>
-            <Barras datos={contar(casos, c => c.estado)} total={casos.length} exportar={k => urlExportar({ estado: k })} />
+            <Barras
+              datos={ORDEN_SEMAFORO.map(k => [k, casos.filter(c => semaforoCaso(c).clave === k).length] as [string, number]).filter(([, v]) => v > 0)}
+              total={casos.length}
+              etiqueta={k => SEMAFORO[k as ClaveSemaforo].etiqueta}
+              color={k => SEMAFORO[k as ClaveSemaforo].color}
+              exportar={k => urlExportar({ semaforo: k })}
+            />
+            <details className="mt-4 border-t border-slate-100 pt-3">
+              <summary className="cursor-pointer text-xs font-semibold text-marca-700">Ver semaforización</summary>
+              <div className="mt-3"><LeyendaSemaforo /></div>
+            </details>
           </section>
           <section className="tarjeta p-4">
             <h3 className="mb-3 font-semibold">Clasificación nutricional</h3>
@@ -118,7 +129,7 @@ export default async function VistaEpsi({ searchParams }: { searchParams: Promis
                   <td className="px-3 py-2">{c.municipio}</td>
                   <td className="px-3 py-2 text-xs">{c.ipsSeguimiento}</td>
                   <td className="px-3 py-2"><SeveridadBadge severidad={c.severidad} /></td>
-                  <td className="px-3 py-2"><EstadoBadge estado={c.estado} /></td>
+                  <td className="px-3 py-2"><EstadoBadge estado={c.estado} z={ultimoZ(c)} /></td>
                   <td className="px-3 py-2 whitespace-nowrap">{formatoFecha(c.fechaNotificacion)}</td>
                   <td className="px-3 py-2"><div className="flex flex-wrap gap-1">{c.alertas.map(a => <AlertaChip key={a} tipo={a} />)}</div></td>
                 </tr>
@@ -202,19 +213,28 @@ function TarjetaIndicador({ i }: { i: Indicador }) {
   );
 }
 
-function Barras({ datos, total, exportar }: { datos: [string, number][]; total: number; exportar?: (clave: string) => string }) {
+function Barras({ datos, total, exportar, etiqueta, color }: {
+  datos: [string, number][];
+  total: number;
+  exportar?: (clave: string) => string;
+  etiqueta?: (clave: string) => string;
+  color?: (clave: string) => string;
+}) {
   return (
     <ul className="space-y-2 text-sm">
       {datos.map(([k, v]) => (
         <li key={k}>
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate">{k}</span>
+            <span className="flex items-center gap-2 truncate">
+              {color && <span className="h-3 w-3 shrink-0 rounded-sm border border-black/10" style={{ backgroundColor: color(k) }} />}
+              {etiqueta ? etiqueta(k) : k}
+            </span>
             <span className="flex items-center gap-2">
               <span className="font-semibold">{v}</span>
               {exportar && <BotonExportar href={exportar(k)} />}
             </span>
           </div>
-          <div className="mt-1 h-2 rounded bg-slate-100"><div className="h-2 rounded bg-marca-600" style={{ width: `${(v / (total || 1)) * 100}%` }} /></div>
+          <div className="mt-1 h-2 rounded bg-slate-100"><div className="h-2 rounded bg-marca-600" style={{ width: `${(v / (total || 1)) * 100}%`, ...(color ? { backgroundColor: color(k) } : {}) }} /></div>
         </li>
       ))}
     </ul>

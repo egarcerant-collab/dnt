@@ -128,7 +128,7 @@ export function PanelPrestador({ filas: todas, fechaCorte }: { filas: FilaCaso[]
                     <td className="px-3 py-2">{f.edadMeses != null ? `${f.edadMeses} m` : '—'}</td>
                     <td className="px-3 py-2">{f.municipio}</td>
                     <td className="px-3 py-2"><SeveridadBadge severidad={f.severidad} /></td>
-                    <td className="px-3 py-2"><EstadoBadge estado={f.estado} /></td>
+                    <td className="px-3 py-2"><EstadoBadge estado={f.estado} z={f.ultimoZ} /></td>
                     <td className="px-3 py-2">
                       {f.ultimoControl ? (
                         <>

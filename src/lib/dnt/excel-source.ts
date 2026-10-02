@@ -56,13 +56,14 @@ export function fechaISO(v: unknown): string | null {
 export function normalizarEstado(v: unknown): Estado {
   const s = norm(v);
   if (!s) return 'SIN DILIGENCIAR';
+  if (/SIN TRATAMIENTO|HOSPITALIZ/.test(s)) return 'SIN TRATAMIENTO';
   if (/PROCESO|RPOCESO/.test(s)) return 'EN PROCESO DE RECUPERACION';
   if (/RECUPERADO/.test(s)) return 'RECUPERADO';
   if (/FALLEC/.test(s)) return 'FALLECIDO';
   if (/DESCART/.test(s)) return 'DESCARTADO';
   if (/DESERT/.test(s)) return 'DESERTADO';
   if (/BUSQUEDA/.test(s)) return 'BUSQUEDA FALLIDA';
-  if (/RECAIDA|RECAÍDA/.test(s)) return 'RECAIDA';
+  if (/RECAIDA|RECAÍDA|REINCID/.test(s)) return 'RECAIDA';
   return 'SIN DILIGENCIAR';
 }
 

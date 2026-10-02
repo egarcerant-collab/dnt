@@ -1,11 +1,11 @@
 import * as XLSX from 'xlsx';
-import { filtrarCasos, grupoEdad, type FiltrosCasos } from '@/lib/dnt/filtros';
+import { filtrarCasos, grupoEdad, semaforoCaso, type FiltrosCasos } from '@/lib/dnt/filtros';
 import { obtenerBase, ultimoControl } from '@/lib/dnt/repositorio';
 import { getStore } from '@/lib/dnt/store';
 import { ALERTAS } from '@/lib/dnt/types';
 import { esEpsi, getSesion } from '@/lib/sesion';
 
-const CLAVES: (keyof FiltrosCasos)[] = ['depto', 'municipio', 'ips', 'estado', 'clasificacion', 'alerta', 'edad'];
+const CLAVES: (keyof FiltrosCasos)[] = ['depto', 'municipio', 'ips', 'estado', 'clasificacion', 'alerta', 'edad', 'semaforo'];
 const ARCHIVO_AUDITORIA = 'auditoria-exportaciones.json';
 
 export async function GET(req: Request) {
@@ -46,6 +46,7 @@ export async function GET(req: Request) {
       'Entrega FTLC': c.fechaEntregaFtlc,
       'MIPRES FTLC': c.mipresFtlc,
       'Estado actual': c.estado,
+      'Semáforo': semaforoCaso(c).etiqueta,
       'Fecha recuperación': c.fechaRecuperacion,
       'N° controles': c.controles.length,
       'Último control': u?.fecha ?? null,

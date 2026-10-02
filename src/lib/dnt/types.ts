@@ -13,6 +13,7 @@ export type ClasificacionNutricional =
 export type Estado =
   | 'RECUPERADO'
   | 'EN PROCESO DE RECUPERACION'
+  | 'SIN TRATAMIENTO'
   | 'FALLECIDO'
   | 'DESCARTADO'
   | 'DESERTADO'
@@ -22,6 +23,7 @@ export type Estado =
 
 export const ESTADOS: Estado[] = [
   'EN PROCESO DE RECUPERACION',
+  'SIN TRATAMIENTO',
   'RECUPERADO',
   'RECAIDA',
   'FALLECIDO',

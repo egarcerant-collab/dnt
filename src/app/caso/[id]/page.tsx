@@ -6,6 +6,7 @@ import { HistoriaClinica } from '@/components/historia-clinica';
 import { FormMensaje, HiloMensajes } from '@/components/mensajes';
 import { AlertaChip, EstadoBadge, SeveridadBadge, formatoFecha } from '@/components/ui';
 import { BLOQUES_CONTROL } from '@/lib/dnt/excel-source';
+import { ultimoZ } from '@/lib/dnt/filtros';
 import { listarHistorias } from '@/lib/dnt/historias';
 import { listarMensajes, marcarLeidos } from '@/lib/dnt/mensajes';
 import { obtenerBase } from '@/lib/dnt/repositorio';
@@ -74,7 +75,7 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
             <h1 className="mt-1 text-2xl font-bold">{caso.nombre}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <SeveridadBadge severidad={caso.severidad} />
-              <EstadoBadge estado={caso.estado} />
+              <EstadoBadge estado={caso.estado} z={ultimoZ(caso)} />
               {caso.alertas.map(a => <AlertaChip key={a} tipo={a} />)}
             </div>
           </div>

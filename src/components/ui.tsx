@@ -1,18 +1,39 @@
+import { ORDEN_SEMAFORO, SEMAFORO, semaforoDe, type ClaveSemaforo } from '@/lib/dnt/semaforo';
 import { ALERTAS, type Estado, type Severidad, type TipoAlerta } from '@/lib/dnt/types';
 
-const COLOR_ESTADO: Record<Estado, string> = {
-  RECUPERADO: 'bg-marca-100 text-marca-800',
-  'EN PROCESO DE RECUPERACION': 'bg-sky-100 text-sky-800',
-  RECAIDA: 'bg-orange-100 text-orange-800',
-  FALLECIDO: 'bg-slate-800 text-white',
-  DESCARTADO: 'bg-slate-100 text-slate-600',
-  DESERTADO: 'bg-rose-100 text-rose-800',
-  'BUSQUEDA FALLIDA': 'bg-rose-100 text-rose-800',
-  'SIN DILIGENCIAR': 'bg-amber-100 text-amber-800',
-};
+/** Estado actual con el color de la semaforización oficial. `z` = último puntaje Z (distingue recuperado en riesgo). */
+export function EstadoBadge({ estado, z }: { estado: Estado | string; z?: number | null }) {
+  const s = semaforoDe(estado, z);
+  return (
+    <span
+      title={`${estado} · ${s.descripcion}`}
+      style={{ backgroundColor: s.color, color: s.texto }}
+      className="inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold"
+    >
+      {s.etiqueta}
+    </span>
+  );
+}
 
-export function EstadoBadge({ estado }: { estado: Estado }) {
-  return <span className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${COLOR_ESTADO[estado]}`}>{estado}</span>;
+/** Leyenda de la semaforización, con conteo opcional por estado. */
+export function LeyendaSemaforo({ conteo, compacta }: { conteo?: Partial<Record<ClaveSemaforo, number>>; compacta?: boolean }) {
+  return (
+    <ul className={compacta ? 'flex flex-wrap gap-2' : 'grid gap-2 sm:grid-cols-2'}>
+      {ORDEN_SEMAFORO.map(k => {
+        const s = SEMAFORO[k];
+        return (
+          <li key={k} className="flex items-start gap-2 text-xs" title={s.descripcion}>
+            <span className="mt-0.5 h-4 w-6 shrink-0 rounded border border-black/10" style={{ backgroundColor: s.color }} />
+            <span>
+              <b className="text-slate-800">{s.etiqueta}</b>
+              {conteo && <span className="ml-1 font-semibold text-slate-500">({conteo[k] ?? 0})</span>}
+              {!compacta && <span className="block text-slate-500">{s.descripcion}</span>}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 export function SeveridadBadge({ severidad }: { severidad: Severidad }) {
