@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import type { EventoTraza, FilaTraza, TipoEvento } from '@/lib/dnt/traza';
 import { ORDEN_SEMAFORO, SEMAFORO, type ClaveSemaforo } from '@/lib/dnt/semaforo';
 import { EstadoBadge, formatoFecha } from './ui';
+import { AccionesContactoIps, type ContactoIps } from './contacto-ips';
 
 type Filtro = 'todos' | 'con-registros' | 'sin-registros' | 'con-historia' | 'sin-historia' | 'preguntas';
 
@@ -38,7 +39,11 @@ function Barra({ v }: { v: number }) {
   );
 }
 
-export function PanelSeguimiento({ filas, eventos }: { filas: FilaTraza[]; eventos: EventoTraza[] }) {
+export function PanelSeguimiento({ filas, eventos, contactos }: {
+  filas: FilaTraza[];
+  eventos: EventoTraza[];
+  contactos: Record<string, { contacto?: ContactoIps; texto: string }>;
+}) {
   const [q, setQ] = useState('');
   const [ips, setIps] = useState('');
   const [filtro, setFiltro] = useState<Filtro>('todos');
@@ -119,6 +124,13 @@ export function PanelSeguimiento({ filas, eventos }: { filas: FilaTraza[]; event
           ))}
         </div>
       </div>
+
+      {ips && (
+        <div className="tarjeta flex flex-col gap-2 p-3">
+          <p className="etiqueta">Notificar a {ips}</p>
+          <AccionesContactoIps ips={ips} contacto={contactos[ips]?.contacto} textoWhatsApp={contactos[ips]?.texto ?? ''} />
+        </div>
+      )}
 
       {vista === 'ninos' ? (
         <section className="tarjeta overflow-x-auto">

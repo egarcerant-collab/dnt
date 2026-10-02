@@ -1,7 +1,7 @@
 import 'server-only';
 import { ipsCanonica } from './dnt/catalogo';
 import { leerExcel } from './dnt/excel-source';
-import { getStore } from './dnt/store';
+import { actualizarJson, getStore } from './dnt/store';
 import { estaBloqueado, hashPassword, limpiarIntentos, registrarFallo, verificarPassword } from './usuarios';
 
 /**
@@ -17,6 +17,43 @@ export interface Prestador {
   activo: boolean;
   nitConfirmado: boolean; // false si el NIT se tomó automáticamente de SIVIGILA
   actualizadoEn: string;
+  /** Pre-registro obligatorio: datos de contacto de la IPS para notificaciones. */
+  contacto?: ContactoPrestador;
+}
+
+export interface ContactoPrestador {
+  responsable: string;
+  cargo: string;
+  correos: string[];
+  whatsapp: string; // celular colombiano de 10 dígitos
+  telefono?: string;
+  autorizaDatos: boolean; // autorización de tratamiento de datos de contacto (Ley 1581/2012)
+  registradoPor: string;
+  registradoEn: string;
+}
+
+const CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** Valida y normaliza el pre-registro del prestador. */
+export function validarContacto(d: { responsable?: string; cargo?: string; correos?: string; whatsapp?: string; telefono?: string; autoriza?: boolean }): Omit<ContactoPrestador, 'registradoPor' | 'registradoEn'> {
+  const responsable = String(d.responsable ?? '').trim().replace(/\s+/g, ' ');
+  if (responsable.length < 5) throw new Error('Escribe el nombre completo del responsable');
+  const correos = [...new Set(String(d.correos ?? '').split(/[,;\s]+/).map(c => c.trim().toLowerCase()).filter(Boolean))];
+  if (!correos.length) throw new Error('Registra al menos un correo de la IPS');
+  if (correos.length > 5) throw new Error('Máximo 5 correos');
+  const malo = correos.find(c => !CORREO.test(c));
+  if (malo) throw new Error(`Correo inválido: ${malo}`);
+  const whatsapp = String(d.whatsapp ?? '').replace(/\D/g, '').replace(/^57(?=3\d{9}$)/, '');
+  if (!/^3\d{9}$/.test(whatsapp)) throw new Error('El WhatsApp debe ser un celular de 10 dígitos que empiece por 3');
+  if (!d.autoriza) throw new Error('Debes autorizar el tratamiento de los datos de contacto');
+  return {
+    responsable: responsable.slice(0, 100),
+    cargo: String(d.cargo ?? '').trim().slice(0, 100),
+    correos,
+    whatsapp,
+    telefono: String(d.telefono ?? '').replace(/[^\d+ -]/g, '').slice(0, 20) || undefined,
+    autorizaDatos: true,
+  };
 }
 
 export type PrestadorPublico = Omit<Prestador, 'hash'> & { tieneClave: boolean };
@@ -90,12 +127,18 @@ export async function autenticarPrestador(ips: string, password: string): Promis
 }
 
 async function guardar(ips: string, cambio: (p: Prestador) => void) {
-  const lista = await listarPrestadores();
-  const p = lista.find(x => x.ips === ips);
-  if (!p) throw new Error('Prestador no encontrado');
-  cambio(p);
-  p.actualizadoEn = new Date().toISOString();
-  await getStore().escribir(ARCHIVO, lista);
+  await listarPrestadores(); // asegura que el catálogo exista
+  await actualizarJson<Prestador[]>(ARCHIVO, () => [], lista => {
+    const p = lista.find(x => x.ips === ips);
+    if (!p) throw new Error('Prestador no encontrado');
+    cambio(p);
+    p.actualizadoEn = new Date().toISOString();
+  });
+}
+
+export async function guardarContactoPrestador(ips: string, datos: Parameters<typeof validarContacto>[0], por: string) {
+  const c = validarContacto(datos);
+  await guardar(ips, p => (p.contacto = { ...c, registradoPor: por, registradoEn: new Date().toISOString() }));
 }
 
 export async function establecerClavePrestador(ips: string, nueva: string) {
@@ -120,4 +163,10 @@ export async function actualizarPrestador(ips: string, cambios: { nit?: string; 
     if (cambios.activo !== undefined) p.activo = cambios.activo;
     if (cambios.restablecer) delete p.hash;
   });
+}
+
+/** El prestador debe completar el pre-registro (contacto) antes de usar el módulo. */
+export async function faltaPreregistro(ips: string | undefined): Promise<boolean> {
+  if (!ips) return false;
+  return !(await listarPrestadores()).find(x => x.ips === ips)?.contacto;
 }

@@ -39,7 +39,7 @@ class LocalStore implements JsonStore {
   async escribir(nombre: string, data: unknown): Promise<void> {
     await fs.mkdir(this.dir, { recursive: true });
     const destino = path.join(this.dir, nombre);
-    const tmp = `${destino}.tmp`;
+    const tmp = `${destino}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`; // único: evita choques entre escrituras simultáneas
     await fs.writeFile(tmp, JSON.stringify(data, null, 2), 'utf-8');
     await fs.rename(tmp, destino); // escritura atómica
   }

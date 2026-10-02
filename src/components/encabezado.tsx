@@ -41,7 +41,12 @@ export async function Encabezado({ sesion, fechaCorte, almacenamiento }: { sesio
               <Enlace href="/admin">Administración</Enlace>
             </>
           )}
-          {sesion.rol === 'prestador' && <Enlace href="/cambiar-clave">Contraseña</Enlace>}
+          {sesion.rol === 'prestador' && (
+            <>
+              <Enlace href="/registro-prestador">Mis datos</Enlace>
+              <Enlace href="/cambiar-clave">Contraseña</Enlace>
+            </>
+          )}
           <span className="ml-2 hidden text-white/90 md:inline">{sesion.nombre}</span>
           <form action={cerrarSesion}>
             <button className="ml-2 rounded-lg border border-white/40 px-3 py-1.5 hover:bg-white/10">Salir</button>

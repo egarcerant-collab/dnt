@@ -1,3 +1,4 @@
+import { faltaPreregistro } from '@/lib/prestadores';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Encabezado } from '@/components/encabezado';
@@ -19,6 +20,7 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
   const sesion = await getSesion();
   if (!sesion) redirect('/');
   if (sesion.debeCambiarClave) redirect('/cambiar-clave');
+  if (sesion.rol === 'prestador' && (await faltaPreregistro(sesion.ips))) redirect('/registro-prestador');
 
   const { id } = await params;
   const base = await obtenerBase();

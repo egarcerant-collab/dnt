@@ -1,3 +1,4 @@
+import { faltaPreregistro } from '@/lib/prestadores';
 import { redirect } from 'next/navigation';
 import { Encabezado } from '@/components/encabezado';
 import { PanelPrestador } from '@/components/panel-prestador';
@@ -15,6 +16,7 @@ export default async function VistaPrestador({ searchParams }: { searchParams: P
   if (!sesion) redirect('/');
   if (sesion.rol === 'epsi') redirect('/epsi');
   if (sesion.debeCambiarClave) redirect('/cambiar-clave');
+  if (sesion.rol === 'prestador' && (await faltaPreregistro(sesion.ips))) redirect('/registro-prestador');
 
   const base = await obtenerBase();
   const listaIps = [...new Set(base.casos.map(c => c.ipsSeguimiento))].sort();

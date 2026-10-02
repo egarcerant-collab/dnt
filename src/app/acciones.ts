@@ -5,7 +5,8 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { leerExcel } from '@/lib/dnt/excel-source';
 import { enviarMensaje, type TipoMensaje } from '@/lib/dnt/mensajes';
-import { actualizarPrestador, autenticarPrestador, establecerClavePrestador } from '@/lib/prestadores';
+import { avisarMensajeIps, enviarInformes } from '@/lib/dnt/informe-ips';
+import { actualizarPrestador, autenticarPrestador, establecerClavePrestador, guardarContactoPrestador } from '@/lib/prestadores';
 import { COOKIE, DURACION_SEG, codificarSesion, esEpsi, getSesion, rutaInicio } from '@/lib/sesion';
 import { actualizarUsuario, autenticar, crearUsuario, esSuperusuario, registrarSolicitud, resolverSolicitud, type RolUsuario } from '@/lib/usuarios';
 
@@ -106,7 +107,50 @@ export async function accionEnviarMensaje(_prev: EstadoAccion, form: FormData): 
 
   await enviarMensaje({ casoId, ips, tipo, texto, autorRol: s.rol, autorNombre: s.nombre });
   revalidatePath(casoId ? `/caso/${encodeURIComponent(casoId)}` : '/notificaciones');
+  // Aviso por correo a la IPS (sin el contenido del mensaje)
+  if (tipo !== 'respuesta') {
+    const aviso = await avisarMensajeIps(ips, tipo, !!casoId).catch(e => ({ ok: false, motivo: (e as Error).message }));
+    return { ok: true, mensaje: aviso.ok ? 'Mensaje enviado y la IPS fue avisada por correo.' : `Mensaje enviado. No se avisó por correo: ${aviso.motivo}.` };
+  }
   return { ok: true, mensaje: 'Mensaje enviado.' };
+}
+
+// ── Pre-registro del prestador e informes ──────────────────────────────
+
+export async function accionGuardarContacto(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
+  const s = await getSesion();
+  if (!s || s.debeCambiarClave || (s.rol !== 'prestador' && s.rol !== 'admin')) return { ok: false, mensaje: 'No autorizado' };
+  const ips = s.rol === 'prestador' ? s.ips! : String(form.get('ips') ?? '');
+  try {
+    await guardarContactoPrestador(
+      ips,
+      {
+        responsable: String(form.get('responsable') ?? ''),
+        cargo: String(form.get('cargo') ?? ''),
+        correos: String(form.get('correos') ?? ''),
+        whatsapp: String(form.get('whatsapp') ?? ''),
+        telefono: String(form.get('telefono') ?? ''),
+        autoriza: form.get('autoriza') === 'on',
+      },
+      s.nombre,
+    );
+  } catch (e) {
+    return { ok: false, mensaje: (e as Error).message };
+  }
+  revalidatePath('/admin');
+  if (s.rol === 'prestador') redirect('/prestador');
+  return { ok: true, mensaje: 'Datos de contacto guardados.' };
+}
+
+export async function accionEnviarInforme(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
+  const s = await getSesion();
+  if (!s || !esEpsi(s.rol)) return { ok: false, mensaje: 'No autorizado' };
+  const ips = String(form.get('ips') ?? '') || undefined;
+  const r = await enviarInformes(ips);
+  const ok = r.filter(x => x.ok).length;
+  if (ips) return r[0]?.ok ? { ok: true, mensaje: 'Informe enviado por correo.' } : { ok: false, mensaje: r[0]?.motivo ?? 'No se pudo enviar' };
+  const fallas = r.filter(x => !x.ok);
+  return { ok: ok > 0, mensaje: `Informes enviados: ${ok}. Sin enviar: ${fallas.length}${fallas.length ? ` (${fallas[0].motivo})` : ''}.` };
 }
 
 // ── Administración (solo rol admin) ────────────────────────────────────

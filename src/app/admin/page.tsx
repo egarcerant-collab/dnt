@@ -4,6 +4,8 @@ import { CargarBase } from '@/components/cargar-base';
 import { SolicitudesRegistro } from '@/components/admin-solicitudes';
 import { FormNuevoUsuario, AccionesUsuario } from '@/components/admin-usuarios';
 import { aPublico, listarPrestadores } from '@/lib/prestadores';
+import { REMITENTE, correoConfigurado } from '@/lib/correo';
+import { resumenesPorIps, textoWhatsApp } from '@/lib/dnt/informe-ips';
 import { Encabezado } from '@/components/encabezado';
 import { obtenerBase } from '@/lib/dnt/repositorio';
 import { getSesion } from '@/lib/sesion';
@@ -18,13 +20,18 @@ export default async function Administracion() {
   if (!sesion) redirect('/');
   if (sesion.rol !== 'admin') redirect('/');
 
-  const [base, usuarios, prestadores] = await Promise.all([obtenerBase(), listarUsuarios(), listarPrestadores()]);
+  const [base, usuarios, prestadores, resumenes] = await Promise.all([obtenerBase(), listarUsuarios(), listarPrestadores(), resumenesPorIps()]);
   const casosPorIps = new Map<string, number>();
   base.casos.forEach(c => casosPorIps.set(c.ipsSeguimiento, (casosPorIps.get(c.ipsSeguimiento) ?? 0) + 1));
   const solicitudes = usuarios.filter(u => u.pendiente).map(u => ({ id: u.id, nombre: u.nombre, correo: u.correo ?? u.usuario, cargo: u.cargo ?? '', creadoEn: u.creadoEn }));
   const activos = usuarios.filter(u => !u.pendiente);
   const soySuperusuario = esSuperusuario(sesion.usuario);
-  const filasPrestadores = prestadores.map(aPublico).map(p => ({ ...p, casos: casosPorIps.get(p.ips) ?? 0 }));
+  const filasPrestadores = prestadores.map(aPublico).map(p => ({
+    ...p,
+    casos: casosPorIps.get(p.ips) ?? 0,
+    contacto: p.contacto && { responsable: p.contacto.responsable, correos: p.contacto.correos, whatsapp: p.contacto.whatsapp },
+    textoWhatsApp: resumenes.get(p.ips) ? textoWhatsApp(resumenes.get(p.ips)!) : '',
+  }));
 
   return (
     <>
@@ -33,7 +40,7 @@ export default async function Administracion() {
         <h1 className="text-2xl font-bold text-marca-900">Administración</h1>
         <SolicitudesRegistro solicitudes={solicitudes} soySuperusuario={soySuperusuario} />
         <CargarBase origen={base.origenBase} casos={base.casos.length} almacenamiento={base.almacenamiento} />
-        <TablaPrestadores prestadores={filasPrestadores} />
+        <TablaPrestadores prestadores={filasPrestadores} correo={{ configurado: correoConfigurado(), remitente: REMITENTE }} />
         <h2 className="mt-2 text-lg font-semibold text-marca-900">Usuarios EPSI</h2>
         <FormNuevoUsuario soySuperusuario={soySuperusuario} />
 
