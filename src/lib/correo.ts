@@ -61,3 +61,20 @@ export function plantilla(titulo: string, parrafos: string[], filas?: [string, s
   const texto = [titulo, '', ...parrafos, '', ...(filas ?? []).map(([k, v]) => `${k}: ${v}`), '', `Ingrese a: ${URL_APP}`].join('\n');
   return { html, texto };
 }
+
+/** Verifica usuario y contraseña de aplicación contra Gmail sin enviar ningún correo. */
+export async function verificarCorreo(): Promise<string> {
+  if (!correoConfigurado()) return 'NO CONFIGURADO (faltan SMTP_USER / SMTP_PASS)';
+  try {
+    const nodemailer = await import('nodemailer');
+    await nodemailer
+      .createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } })
+      .verify();
+    return `OK (conectado como ${process.env.SMTP_USER})`;
+  } catch (e) {
+    const m = (e as Error).message;
+    return /Username and Password not accepted|535|BadCredentials/i.test(m)
+      ? 'ERROR: Gmail rechazó la clave. SMTP_PASS debe ser una CONTRASEÑA DE APLICACIÓN de 16 letras (myaccount.google.com/apppasswords), no la contraseña normal'
+      : `ERROR: ${m}`;
+  }
+}
