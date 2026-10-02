@@ -31,7 +31,7 @@ export const SEMAFORO: Record<ClaveSemaforo, Semaforo> = {
   },
   EN_TRATAMIENTO: {
     clave: 'EN_TRATAMIENTO', etiqueta: 'Paciente en tratamiento', color: '#FFFF00', texto: '#3b3b00',
-    descripcion: 'En manejo terapéutico de la desnutrición de acuerdo al protocolo de la Res. 2350 de 2020. Incluye a los recuperados que siguen en riesgo de DNT (Z entre -2 y -1), que continúan en seguimiento.',
+    descripcion: 'En manejo terapéutico de la desnutrición de acuerdo al protocolo de la Res. 2350 de 2020. Incluye a los recuperados que siguen en riesgo de DNT (Z entre -2 y -1) y a los casos sin estado diligenciado, que continúan en seguimiento.',
   },
   RECUPERADO: {
     clave: 'RECUPERADO', etiqueta: 'Paciente recuperado', color: '#92D050', texto: '#173300',
@@ -52,7 +52,7 @@ export const SEMAFORO: Record<ClaveSemaforo, Semaforo> = {
 };
 
 export const ORDEN_SEMAFORO: ClaveSemaforo[] = [
-  'FALLECIDO', 'SIN_TRATAMIENTO', 'EN_TRATAMIENTO', 'RECUPERADO', 'DESCARTADO', 'REINCIDENTE', 'SIN_DATO',
+  'FALLECIDO', 'SIN_TRATAMIENTO', 'EN_TRATAMIENTO', 'RECUPERADO', 'DESCARTADO', 'REINCIDENTE',
 ];
 
 /** Asigna el semáforo según el estado y, para recuperados, el último puntaje Z peso/talla. */
@@ -68,6 +68,7 @@ export function semaforoDe(estado: Estado | string, ultimoZ?: number | null): Se
       return ultimoZ != null && ultimoZ >= -2 && ultimoZ < -1 ? SEMAFORO.EN_TRATAMIENTO : SEMAFORO.RECUPERADO;
     case 'DESCARTADO': return SEMAFORO.DESCARTADO;
     case 'RECAIDA': return SEMAFORO.REINCIDENTE;
-    default: return SEMAFORO.SIN_DATO;
+    // Sin estado diligenciado: se considera en seguimiento (amarillo); la alerta de calidad del dato se mantiene
+    default: return SEMAFORO.EN_TRATAMIENTO;
   }
 }
