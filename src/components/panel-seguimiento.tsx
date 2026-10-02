@@ -7,12 +7,10 @@ import { ORDEN_SEMAFORO, SEMAFORO, type ClaveSemaforo } from '@/lib/dnt/semaforo
 import { EstadoBadge, formatoFecha } from './ui';
 import { AccionesContactoIps, type ContactoIps } from './contacto-ips';
 
-type Filtro = 'todos' | 'cero-controles' | 'con-controles' | 'con-registros' | 'sin-registros' | 'con-historia' | 'sin-historia' | 'preguntas';
+type Filtro = 'todos' | 'con-registros' | 'sin-registros' | 'con-historia' | 'sin-historia' | 'preguntas';
 
 const FILTROS: [Filtro, string][] = [
   ['todos', 'Todos'],
-  ['cero-controles', '0 controles'],
-  ['con-controles', '1 o más controles'],
   ['con-registros', 'Con registros del prestador'],
   ['sin-registros', 'Sin registros del prestador'],
   ['con-historia', 'Con historia clínica'],
@@ -28,6 +26,10 @@ const ICONO: Record<TipoEvento, { t: string; c: string }> = {
   notificacion: { t: 'Notificación EPSI', c: 'bg-sky-100 text-sky-800' },
   pregunta: { t: 'Pregunta EPSI', c: 'bg-amber-100 text-amber-800' },
 };
+
+/** Grupos por número de controles (Excel AY..KF + app). */
+const GRUPOS_N = ['0', '1', '2', '3', '4', '5', '6+'];
+const grupoN = (f: FilaTraza) => { const n = f.controlesExcel + f.controlesApp; return n >= 6 ? '6+' : String(n); };
 
 const fechaHora = (iso: string) => new Date(iso).toLocaleString('es-CO', { timeZone: 'America/Bogota', dateStyle: 'short', timeStyle: 'short' });
 
@@ -52,6 +54,7 @@ export function PanelSeguimiento({ filas, eventos, contactos }: {
   const [vista, setVista] = useState<'ninos' | 'actividad'>('ninos');
   const [abierto, setAbierto] = useState<string | null>(null);
   const [semaforo, setSemaforo] = useState<ClaveSemaforo | ''>('');
+  const [nControles, setNControles] = useState('');
 
   const listaIps = useMemo(() => [...new Set(filas.map(f => f.ips))].sort(), [filas]);
 
@@ -60,11 +63,10 @@ export function PanelSeguimiento({ filas, eventos, contactos }: {
     return filas
       .filter(f => !ips || f.ips === ips)
       .filter(f => !semaforo || f.semaforo === semaforo)
+      .filter(f => !nControles || grupoN(f) === nControles)
       .filter(f => !t || f.nombre.toUpperCase().includes(t) || f.documento.includes(t) || f.municipio.includes(t))
       .filter(f =>
-        filtro === 'cero-controles' ? f.controlesExcel + f.controlesApp === 0
-        : filtro === 'con-controles' ? f.controlesExcel + f.controlesApp > 0
-        : filtro === 'con-registros' ? f.controlesApp > 0 || f.historias.length > 0 || f.ax
+        filtro === 'con-registros' ? f.controlesApp > 0 || f.historias.length > 0 || f.ax
         : filtro === 'sin-registros' ? f.controlesApp === 0 && f.historias.length === 0 && !f.ax
         : filtro === 'con-historia' ? f.historias.length > 0
         : filtro === 'sin-historia' ? f.controlesSinHc.length > 0
@@ -72,7 +74,13 @@ export function PanelSeguimiento({ filas, eventos, contactos }: {
         : true,
       )
       .sort((a, b) => (b.ultimoRegistroApp?.fecha ?? '').localeCompare(a.ultimoRegistroApp?.fecha ?? '') || a.porcentaje - b.porcentaje);
-  }, [filas, q, ips, filtro, semaforo]);
+  }, [filas, q, ips, filtro, semaforo, nControles]);
+
+  const conteoControles = useMemo(() => {
+    const r: Record<string, number> = {};
+    (ips ? filas.filter(f => f.ips === ips) : filas).forEach(f => (r[grupoN(f)] = (r[grupoN(f)] ?? 0) + 1));
+    return r;
+  }, [filas, ips]);
 
   const conteoSemaforo = useMemo(() => {
     const r: Partial<Record<ClaveSemaforo, number>> = {};
@@ -146,6 +154,19 @@ export function PanelSeguimiento({ filas, eventos, contactos }: {
                 style={{ backgroundColor: SEMAFORO[k].color, color: SEMAFORO[k].texto }}
                 className={`rounded-full px-3 py-1 text-xs font-semibold ${semaforo === k ? 'ring-2 ring-slate-800 ring-offset-1' : 'opacity-90'}`}>
                 {SEMAFORO[k].etiqueta} ({conteoSemaforo[k]})
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-3">
+            <span className="etiqueta mr-1">N° de controles</span>
+            <button onClick={() => setNControles('')}
+              className={`rounded-full border px-3 py-1 text-xs ${nControles === '' ? 'border-slate-700 bg-slate-700 font-semibold text-white' : 'border-slate-300'}`}>
+              Todos
+            </button>
+            {GRUPOS_N.map(g => (
+              <button key={g} onClick={() => setNControles(nControles === g ? '' : g)}
+                className={`rounded-full border px-3 py-1 text-xs ${nControles === g ? 'border-marca-600 bg-marca-600 font-semibold text-white' : g === '0' ? 'border-red-200 bg-red-50 text-red-700' : 'border-slate-300 hover:bg-marca-50'}`}>
+                {g === '1' ? '1 control' : `${g} controles`} ({conteoControles[g] ?? 0})
               </button>
             ))}
           </div>
