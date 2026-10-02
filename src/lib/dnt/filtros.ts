@@ -10,6 +10,7 @@ export interface FiltrosCasos {
   alerta?: string;
   edad?: string;
   semaforo?: string; // clave del semáforo del estado actual
+  controles?: string; // "0", "1"…"5", "6+" o "1+" (número de controles AY..KF)
 }
 
 /** Último puntaje Z peso/talla registrado (o el de ingreso si no hay controles). */
@@ -19,6 +20,13 @@ export function ultimoZ(c: Caso): number | null {
 }
 
 export const semaforoCaso = (c: Caso) => semaforoDe(c.estado, ultimoZ(c));
+
+/** Grupo por número de controles registrados (AY..KF + app). */
+export function grupoControles(c: Caso): string {
+  const n = c.controles.length;
+  return n >= 6 ? '6+' : String(n);
+}
+export const GRUPOS_CONTROLES = ['0', '1', '2', '3', '4', '5', '6+'];
 
 export function grupoEdad(c: Caso): string {
   const m = c.edadMeses;
@@ -37,7 +45,8 @@ export function filtrarCasos(casos: Caso[], f: FiltrosCasos): Caso[] {
       (!f.clasificacion || c.clasificacionNutricional === f.clasificacion) &&
       (!f.alerta || c.alertas.includes(f.alerta as TipoAlerta)) &&
       (!f.edad || grupoEdad(c) === f.edad) &&
-      (!f.semaforo || semaforoCaso(c).clave === f.semaforo),
+      (!f.semaforo || semaforoCaso(c).clave === f.semaforo) &&
+      (!f.controles || (f.controles === '1+' ? c.controles.length > 0 : grupoControles(c) === f.controles)),
   );
 }
 

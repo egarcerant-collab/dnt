@@ -4,7 +4,7 @@ import { Encabezado } from '@/components/encabezado';
 import { FiltrosCascada } from '@/components/filtros-cascada';
 import { AlertaChip, EstadoBadge, LeyendaSemaforo, SeveridadBadge, formatoFecha } from '@/components/ui';
 import { calcularIndicadores, contarAlertas, type Indicador } from '@/lib/dnt/indicadores';
-import { aQueryString, filtrarCasos, grupoEdad, semaforoCaso, ultimoZ } from '@/lib/dnt/filtros';
+import { GRUPOS_CONTROLES, aQueryString, filtrarCasos, grupoControles, grupoEdad, semaforoCaso, ultimoZ } from '@/lib/dnt/filtros';
 import { obtenerBase } from '@/lib/dnt/repositorio';
 import { ORDEN_SEMAFORO, SEMAFORO, type ClaveSemaforo } from '@/lib/dnt/semaforo';
 import { ALERTAS, type Caso, type TipoAlerta } from '@/lib/dnt/types';
@@ -107,6 +107,8 @@ export default async function VistaEpsi({ searchParams }: { searchParams: Promis
           </section>
         </div>
 
+        <ControlesPorNino casos={casos} urlExportar={urlExportar} />
+
         <TablaGrupos titulo="Cumplimiento por IPS" filas={porIps} />
         <TablaGrupos titulo="Cumplimiento por municipio" filas={porMunicipio} />
 
@@ -182,7 +184,7 @@ function completitud(casos: Caso[]): [string, number][] {
   ];
 }
 
-interface FilaGrupo { nombre: string; total: number; recuperacion: number | null; oportunidad: number | null; sinControl: number; sinEstado: number }
+interface FilaGrupo { nombre: string; total: number; ceroControles: number; totalControles: number; recuperacion: number | null; oportunidad: number | null; sinControl: number; sinEstado: number }
 
 function resumenPorGrupo(casos: Caso[], k: (c: Caso) => string): FilaGrupo[] {
   const grupos = new Map<string, Caso[]>();
@@ -190,7 +192,7 @@ function resumenPorGrupo(casos: Caso[], k: (c: Caso) => string): FilaGrupo[] {
   return [...grupos.entries()]
     .map(([nombre, cs]) => {
       const ind = Object.fromEntries(calcularIndicadores(cs).map(i => [i.clave, i.valor]));
-      return { nombre, total: cs.length, recuperacion: ind.recuperacion, oportunidad: ind.oportunidad, sinControl: ind.sinControl ?? 0, sinEstado: ind.sinEstado ?? 0 };
+      return { nombre, total: cs.length, ceroControles: cs.filter(c => c.controles.length === 0).length, totalControles: cs.reduce((n, c) => n + c.controles.length, 0), recuperacion: ind.recuperacion, oportunidad: ind.oportunidad, sinControl: ind.sinControl ?? 0, sinEstado: ind.sinEstado ?? 0 };
     })
     .sort((a, b) => b.total - a.total);
 }
@@ -268,6 +270,7 @@ function TablaGrupos({ titulo, filas }: { titulo: string; filas: FilaGrupo[] }) 
         <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
           <tr>
             <th className="px-3 py-2">Nombre</th><th className="px-3 py-2 text-right">Casos</th>
+            <th className="px-3 py-2 text-right">0 controles</th><th className="px-3 py-2 text-right">1 o más controles</th><th className="px-3 py-2 text-right">Total controles</th>
             <th className="px-3 py-2 text-right">Recuperación (≥75%)</th><th className="px-3 py-2 text-right">Oportunidad 1er control (≥90%)</th>
             <th className="px-3 py-2 text-right">Sin control &gt; 4 sem</th><th className="px-3 py-2 text-right">Sin estado</th>
           </tr>
@@ -277,6 +280,9 @@ function TablaGrupos({ titulo, filas }: { titulo: string; filas: FilaGrupo[] }) 
             <tr key={g.nombre} className="hover:bg-slate-50">
               <td className="px-3 py-2">{g.nombre}</td>
               <td className="px-3 py-2 text-right">{g.total}</td>
+              <td className={`px-3 py-2 text-right ${g.ceroControles ? 'font-semibold text-red-600' : ''}`}>{g.ceroControles}</td>
+              <td className="px-3 py-2 text-right">{g.total - g.ceroControles}</td>
+              <td className="px-3 py-2 text-right">{g.totalControles}</td>
               <td className="px-3 py-2 text-right">{celda(g.recuperacion, 75)}</td>
               <td className="px-3 py-2 text-right">{celda(g.oportunidad, 90)}</td>
               <td className={`px-3 py-2 text-right ${g.sinControl ? 'font-semibold text-red-600' : ''}`}>{g.sinControl}</td>
@@ -285,6 +291,44 @@ function TablaGrupos({ titulo, filas }: { titulo: string; filas: FilaGrupo[] }) 
           ))}
         </tbody>
       </table>
+    </section>
+  );
+}
+
+/** Controles registrados por niño (columnas AY..KF del libro + los cargados en la app). */
+function ControlesPorNino({ casos, urlExportar }: { casos: Caso[]; urlExportar: (extra?: Record<string, string>) => string }) {
+  const total = casos.length;
+  const cero = casos.filter(c => c.controles.length === 0).length;
+  const controles = casos.reduce((n, c) => n + c.controles.length, 0);
+  const datos = GRUPOS_CONTROLES.map(g => [g, casos.filter(c => grupoControles(c) === g).length] as [string, number]);
+  const pct = (v: number) => (total ? Math.round((v / total) * 1000) / 10 : 0);
+  return (
+    <section className="tarjeta p-4">
+      <h3 className="font-semibold">Controles por niño <span className="font-normal text-slate-500">(columnas AY–KF del libro + registrados en la app)</span></h3>
+      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <a href={urlExportar({ controles: '0' })} download className="rounded-lg border border-red-200 bg-red-50 p-3 hover:bg-red-100">
+          <p className="etiqueta text-red-700">Con 0 controles</p>
+          <p className="text-2xl font-bold text-red-700">{cero} <span className="text-sm font-medium">({pct(cero)}%)</span></p>
+          <p className="text-xs text-red-700">↓ Descargar en Excel</p>
+        </a>
+        <a href={urlExportar({ controles: '1+' })} download className="rounded-lg border border-marca-100 bg-marca-50 p-3 hover:bg-marca-100">
+          <p className="etiqueta text-marca-800">Con 1 o más controles</p>
+          <p className="text-2xl font-bold text-marca-800">{total - cero} <span className="text-sm font-medium">({pct(total - cero)}%)</span></p>
+          <p className="text-xs text-marca-700">↓ Descargar en Excel</p>
+        </a>
+        <div className="rounded-lg border border-slate-200 p-3">
+          <p className="etiqueta">Total de controles</p>
+          <p className="text-2xl font-bold text-slate-900">{controles}</p>
+        </div>
+        <div className="rounded-lg border border-slate-200 p-3">
+          <p className="etiqueta">Promedio por niño</p>
+          <p className="text-2xl font-bold text-slate-900">{total ? (controles / total).toFixed(1) : '0'}</p>
+        </div>
+      </div>
+      <div className="mt-4">
+        <p className="etiqueta mb-2">Niños según número de controles</p>
+        <Barras datos={datos} total={total} etiqueta={g => (g === '1' ? '1 control' : `${g} controles`)} exportar={g => urlExportar({ controles: g })} />
+      </div>
     </section>
   );
 }

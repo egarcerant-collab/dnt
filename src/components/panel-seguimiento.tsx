@@ -7,10 +7,12 @@ import { ORDEN_SEMAFORO, SEMAFORO, type ClaveSemaforo } from '@/lib/dnt/semaforo
 import { EstadoBadge, formatoFecha } from './ui';
 import { AccionesContactoIps, type ContactoIps } from './contacto-ips';
 
-type Filtro = 'todos' | 'con-registros' | 'sin-registros' | 'con-historia' | 'sin-historia' | 'preguntas';
+type Filtro = 'todos' | 'cero-controles' | 'con-controles' | 'con-registros' | 'sin-registros' | 'con-historia' | 'sin-historia' | 'preguntas';
 
 const FILTROS: [Filtro, string][] = [
   ['todos', 'Todos'],
+  ['cero-controles', '0 controles'],
+  ['con-controles', '1 o más controles'],
   ['con-registros', 'Con registros del prestador'],
   ['sin-registros', 'Sin registros del prestador'],
   ['con-historia', 'Con historia clínica'],
@@ -60,7 +62,9 @@ export function PanelSeguimiento({ filas, eventos, contactos }: {
       .filter(f => !semaforo || f.semaforo === semaforo)
       .filter(f => !t || f.nombre.toUpperCase().includes(t) || f.documento.includes(t) || f.municipio.includes(t))
       .filter(f =>
-        filtro === 'con-registros' ? f.controlesApp > 0 || f.historias.length > 0 || f.ax
+        filtro === 'cero-controles' ? f.controlesExcel + f.controlesApp === 0
+        : filtro === 'con-controles' ? f.controlesExcel + f.controlesApp > 0
+        : filtro === 'con-registros' ? f.controlesApp > 0 || f.historias.length > 0 || f.ax
         : filtro === 'sin-registros' ? f.controlesApp === 0 && f.historias.length === 0 && !f.ax
         : filtro === 'con-historia' ? f.historias.length > 0
         : filtro === 'sin-historia' ? f.controlesSinHc.length > 0

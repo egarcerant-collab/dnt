@@ -74,7 +74,12 @@ const listar = (dir: string): string[] =>
 
 // ── Base de seguimiento: mismas reglas que la app (excel-source.ts) ────
 const HOJA = 'BD seg ambulatorio DNTA';
-const BLOQUES = [50, 63, 76, 89, 102, 114, 126, 138, 150, 162, 175, 188, 201, 214, 227, 240, 253, 266, 279];
+// [inicio, tamaño] de cada bloque de control (AY..KF), igual que la app
+const BLOQUES: [number, number][] = [
+  [50, 13], [63, 13], [76, 13], [89, 13], [102, 12], [114, 12], [126, 12], [138, 12], [150, 12],
+  [162, 13], [175, 13], [188, 13], [201, 13], [214, 13], [227, 13], [240, 13], [253, 13], [266, 13], [279, 13],
+];
+const conDatos = (r: unknown[], c: number, t: number) => Array.from({ length: t }, (_, j) => r[c + j]).some(v => v != null && String(v).trim() !== '');
 
 interface Nino { casoId: string; doc: string; nombres: string[]; apellidos: string[]; ips: string; nombre: string; fechasControles: string[] }
 
@@ -88,7 +93,7 @@ function leerBase(contenido: Buffer, app: Record<string, { controles?: { fecha: 
     vistos.set(doc, rep);
     const casoId = rep > 1 ? `${doc}-${rep}` : doc;
     // Numeración igual a la app: bloques no vacíos del Excel en orden, luego los de la app
-    const excel = BLOQUES.filter(c => fechaISO(r[c]) || r[c + 1] != null).map(c => fechaISO(r[c]) ?? '');
+    const excel = BLOQUES.filter(([c, t]) => conDatos(r, c, t)).map(([c]) => fechaISO(r[c]) ?? '');
     const enApp = (app[casoId]?.controles ?? []).map(k => k.fecha ?? '');
     return {
       casoId, doc,

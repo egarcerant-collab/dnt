@@ -109,7 +109,10 @@ function leerControles(r: unknown[]): Control[] {
   const controles: Control[] = [];
   BLOQUES_CONTROL.forEach(([c, tam], i) => {
     const fecha = fechaISO(r[c]);
-    if (!fecha && r[c + 1] == null) return;
+    // Un bloque cuenta como control si tiene cualquier dato diligenciado (columnas AY..KF)
+    let conDatos = false;
+    for (let j = 0; j < tam && !conDatos; j++) conDatos = r[c + j] != null && String(r[c + j]).trim() !== '';
+    if (!conDatos) return;
     const k = camposBloque(tam);
     controles.push({
       numero: i + 1,
