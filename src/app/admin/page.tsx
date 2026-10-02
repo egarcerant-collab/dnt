@@ -7,7 +7,7 @@ import { aPublico, listarPrestadores } from '@/lib/prestadores';
 import { Encabezado } from '@/components/encabezado';
 import { obtenerBase } from '@/lib/dnt/repositorio';
 import { getSesion } from '@/lib/sesion';
-import { listarUsuarios, sinHash } from '@/lib/usuarios';
+import { esSuperusuario, listarUsuarios, sinHash } from '@/lib/usuarios';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +23,7 @@ export default async function Administracion() {
   base.casos.forEach(c => casosPorIps.set(c.ipsSeguimiento, (casosPorIps.get(c.ipsSeguimiento) ?? 0) + 1));
   const solicitudes = usuarios.filter(u => u.pendiente).map(u => ({ id: u.id, nombre: u.nombre, correo: u.correo ?? u.usuario, cargo: u.cargo ?? '', creadoEn: u.creadoEn }));
   const activos = usuarios.filter(u => !u.pendiente);
+  const soySuperusuario = esSuperusuario(sesion.usuario);
   const filasPrestadores = prestadores.map(aPublico).map(p => ({ ...p, casos: casosPorIps.get(p.ips) ?? 0 }));
 
   return (
@@ -30,11 +31,11 @@ export default async function Administracion() {
       <Encabezado sesion={sesion} fechaCorte={base.fechaCorte} almacenamiento={base.almacenamiento} />
       <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6">
         <h1 className="text-2xl font-bold text-marca-900">Administración</h1>
-        <SolicitudesRegistro solicitudes={solicitudes} />
+        <SolicitudesRegistro solicitudes={solicitudes} soySuperusuario={soySuperusuario} />
         <CargarBase origen={base.origenBase} casos={base.casos.length} almacenamiento={base.almacenamiento} />
         <TablaPrestadores prestadores={filasPrestadores} />
         <h2 className="mt-2 text-lg font-semibold text-marca-900">Usuarios EPSI</h2>
-        <FormNuevoUsuario />
+        <FormNuevoUsuario soySuperusuario={soySuperusuario} />
 
         <section className="tarjeta overflow-x-auto">
           <h2 className="border-b border-slate-100 p-4 font-semibold">Usuarios registrados ({activos.length})</h2>
@@ -51,7 +52,13 @@ export default async function Administracion() {
                 <tr key={u.id}>
                   <td className="px-3 py-2 font-mono">{u.usuario}</td>
                   <td className="px-3 py-2">{u.nombre}</td>
-                  <td className="px-3 py-2">{ETIQUETA[u.rol]}</td>
+                  <td className="px-3 py-2">
+                    {esSuperusuario(u.usuario) ? (
+                      <span className="rounded-full bg-marca-700 px-2 py-0.5 text-xs font-semibold text-white">Superusuario</span>
+                    ) : (
+                      ETIQUETA[u.rol]
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-xs">{u.ips ?? '—'}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{new Date(u.creadoEn).toLocaleDateString('es-CO', { timeZone: 'America/Bogota' })}</td>
                   <td className="px-3 py-2">
@@ -59,7 +66,8 @@ export default async function Administracion() {
                       {u.activo ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
-                  <td className="px-3 py-2"><AccionesUsuario id={u.id} activo={u.activo} esYo={u.id === sesion.id} /></td>
+                  <td className="px-3 py-2"><AccionesUsuario id={u.id} activo={u.activo} rol={u.rol}
+                    permisos={{ esSuper: esSuperusuario(u.usuario), soySuperusuario, esYo: u.id === sesion.id }} /></td>
                 </tr>
               ))}
             </tbody>

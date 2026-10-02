@@ -5,7 +5,7 @@ import { accionResolverSolicitud } from '@/app/acciones';
 
 export interface SolicitudVista { id: string; nombre: string; correo: string; cargo: string; creadoEn: string }
 
-function Fila({ s }: { s: SolicitudVista }) {
+function Fila({ s, soySuperusuario }: { s: SolicitudVista; soySuperusuario: boolean }) {
   const [estado, accion, pendiente] = useActionState(accionResolverSolicitud, null);
   return (
     <tr className="align-top">
@@ -19,7 +19,7 @@ function Fila({ s }: { s: SolicitudVista }) {
             <input type="hidden" name="decision" value="aprobar" />
             <select name="rol" defaultValue="epsi" className="input w-40">
               <option value="epsi">Funcionario EPSI</option>
-              <option value="admin">Administrador</option>
+              {soySuperusuario && <option value="admin">Administrador</option>}
             </select>
             <button className="boton" disabled={pendiente}>Aprobar</button>
           </form>
@@ -35,7 +35,7 @@ function Fila({ s }: { s: SolicitudVista }) {
   );
 }
 
-export function SolicitudesRegistro({ solicitudes }: { solicitudes: SolicitudVista[] }) {
+export function SolicitudesRegistro({ solicitudes, soySuperusuario }: { solicitudes: SolicitudVista[]; soySuperusuario: boolean }) {
   return (
     <section className={`tarjeta overflow-x-auto ${solicitudes.length ? 'border-amber-300' : ''}`}>
       <div className="border-b border-slate-100 p-4">
@@ -52,7 +52,7 @@ export function SolicitudesRegistro({ solicitudes }: { solicitudes: SolicitudVis
           <thead className="bg-marca-50 text-left text-xs uppercase text-marca-900">
             <tr><th className="px-3 py-2">Solicitante</th><th className="px-3 py-2">Correo</th><th className="px-3 py-2">Fecha</th><th className="px-3 py-2">Decisión</th></tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">{solicitudes.map(s => <Fila key={s.id} s={s} />)}</tbody>
+          <tbody className="divide-y divide-slate-100">{solicitudes.map(s => <Fila key={s.id} s={s} soySuperusuario={soySuperusuario} />)}</tbody>
         </table>
       )}
     </section>

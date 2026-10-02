@@ -41,6 +41,9 @@ export function verificarPassword(password: string, almacenado: string): boolean
 /** Acepta 'usuario' o 'usuario@dusakawiepsi.com'. */
 const normalizarUsuario = (u: string) => u.trim().toLowerCase().replace(/@dusakawiepsi\.com$/, '');
 
+/** Superusuario: la cuenta principal (ADMIN_USUARIO, por defecto egarcerant). No se puede degradar ni desactivar. */
+export const esSuperusuario = (usuario: string) => normalizarUsuario(usuario) === normalizarUsuario(process.env.ADMIN_USUARIO || 'egarcerant');
+
 /**
  * Carga usuarios. Si no existe ninguno, crea el administrador inicial
  * desde ADMIN_USUARIO / ADMIN_PASSWORD (.env.local, nunca en el código).
@@ -137,7 +140,10 @@ export async function registrarSolicitud(datos: { correo: string; nombre: string
 }
 
 /** Administrador: aprueba (con rol) o rechaza (elimina) una solicitud de registro. */
-export async function resolverSolicitud(id: string, decision: { aprobar: true; rol: 'epsi' | 'admin' } | { aprobar: false }) {
+export async function resolverSolicitud(id: string, decision: { aprobar: true; rol: 'epsi' | 'admin' } | { aprobar: false }, actor: string) {
+  if (decision.aprobar && decision.rol === 'admin' && !esSuperusuario(actor)) {
+    throw new Error('Solo el superusuario puede aprobar administradores');
+  }
   await actualizarJson<Usuario[]>(ARCHIVO, () => [], usuarios => {
     const i = usuarios.findIndex(u => u.id === id && u.pendiente);
     if (i < 0) throw new Error('Solicitud no encontrada');
@@ -169,17 +175,34 @@ export async function crearUsuario(datos: { usuario: string; nombre: string; rol
   await getStore().escribir(ARCHIVO, usuarios);
 }
 
-export async function actualizarUsuario(id: string, cambios: { activo?: boolean; password?: string }) {
-  const usuarios = await listarUsuarios();
-  const u = usuarios.find(x => x.id === id);
-  if (!u) throw new Error('Usuario no encontrado');
-  if (cambios.activo === false && u.rol === 'admin' && usuarios.filter(x => x.rol === 'admin' && x.activo).length === 1) {
-    throw new Error('No se puede desactivar el único administrador');
-  }
-  if (cambios.activo !== undefined) u.activo = cambios.activo;
-  if (cambios.password) {
-    if (cambios.password.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres');
-    u.hash = hashPassword(cambios.password);
-  }
-  await getStore().escribir(ARCHIVO, usuarios);
+/**
+ * Cambios sobre un usuario hechos por `actor` (usuario en sesión).
+ * - El superusuario no puede ser desactivado ni degradado, y solo él cambia su contraseña.
+ * - Solo el superusuario cambia roles (Funcionario EPSI ↔ Administrador) o modifica a otros administradores.
+ */
+export async function actualizarUsuario(
+  id: string,
+  cambios: { activo?: boolean; password?: string; rol?: 'epsi' | 'admin' },
+  actor: string,
+) {
+  const actorEsSuper = esSuperusuario(actor);
+  await actualizarJson<Usuario[]>(ARCHIVO, () => [], usuarios => {
+    const u = usuarios.find(x => x.id === id);
+    if (!u) throw new Error('Usuario no encontrado');
+    const objetivoEsSuper = esSuperusuario(u.usuario);
+
+    if (objetivoEsSuper && (cambios.activo === false || (cambios.rol && cambios.rol !== 'admin'))) {
+      throw new Error('El superusuario no se puede desactivar ni cambiar de rol');
+    }
+    if (objetivoEsSuper && cambios.password && !actorEsSuper) throw new Error('Solo el superusuario puede cambiar su contraseña');
+    if (u.rol === 'admin' && !objetivoEsSuper && !actorEsSuper) throw new Error('Solo el superusuario puede modificar a otros administradores');
+    if (cambios.rol && !actorEsSuper) throw new Error('Solo el superusuario puede cambiar roles');
+
+    if (cambios.activo !== undefined) u.activo = cambios.activo;
+    if (cambios.rol) u.rol = cambios.rol;
+    if (cambios.password) {
+      if (cambios.password.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres');
+      u.hash = hashPassword(cambios.password);
+    }
+  });
 }

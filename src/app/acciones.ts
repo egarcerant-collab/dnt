@@ -7,7 +7,7 @@ import { leerExcel } from '@/lib/dnt/excel-source';
 import { enviarMensaje, type TipoMensaje } from '@/lib/dnt/mensajes';
 import { actualizarPrestador, autenticarPrestador, establecerClavePrestador } from '@/lib/prestadores';
 import { COOKIE, DURACION_SEG, codificarSesion, esEpsi, getSesion, rutaInicio } from '@/lib/sesion';
-import { actualizarUsuario, autenticar, crearUsuario, registrarSolicitud, resolverSolicitud, type RolUsuario } from '@/lib/usuarios';
+import { actualizarUsuario, autenticar, crearUsuario, esSuperusuario, registrarSolicitud, resolverSolicitud, type RolUsuario } from '@/lib/usuarios';
 
 export type EstadoAccion = { ok: boolean; mensaje: string } | null;
 
@@ -119,11 +119,13 @@ async function exigirAdmin() {
 
 export async function accionCrearUsuario(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
   try {
-    await exigirAdmin();
+    const s = await exigirAdmin();
+    const rol = (String(form.get('rol')) === 'admin' ? 'admin' : 'epsi') as RolUsuario;
+    if (rol === 'admin' && !esSuperusuario(s.usuario)) throw new Error('Solo el superusuario puede crear administradores');
     await crearUsuario({
       usuario: String(form.get('usuario') ?? ''),
       nombre: String(form.get('nombre') ?? ''),
-      rol: String(form.get('rol')) as RolUsuario,
+      rol,
       password: String(form.get('password') ?? ''),
     });
     revalidatePath('/admin');
@@ -135,16 +137,22 @@ export async function accionCrearUsuario(_prev: EstadoAccion, form: FormData): P
 
 export async function accionActualizarUsuario(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
   try {
-    await exigirAdmin();
+    const s = await exigirAdmin();
     const id = String(form.get('id'));
     const activo = form.get('activo');
     const password = String(form.get('password') ?? '');
-    await actualizarUsuario(id, {
-      activo: activo == null ? undefined : activo === 'true',
-      password: password || undefined,
-    });
+    const rol = form.get('rol');
+    await actualizarUsuario(
+      id,
+      {
+        activo: activo == null ? undefined : activo === 'true',
+        password: password || undefined,
+        rol: rol === 'admin' || rol === 'epsi' ? rol : undefined,
+      },
+      s.usuario,
+    );
     revalidatePath('/admin');
-    return { ok: true, mensaje: password ? 'Contraseña actualizada.' : 'Usuario actualizado.' };
+    return { ok: true, mensaje: password ? 'Contraseña actualizada.' : rol ? 'Rol actualizado.' : 'Usuario actualizado.' };
   } catch (e) {
     return { ok: false, mensaje: (e as Error).message };
   }
@@ -189,11 +197,11 @@ export async function accionRegistrarse(_prev: EstadoAccion, form: FormData): Pr
 
 export async function accionResolverSolicitud(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
   try {
-    await exigirAdmin();
+    const sesion = await exigirAdmin();
     const id = String(form.get('id'));
     const aprobar = form.get('decision') === 'aprobar';
     const rol = form.get('rol') === 'admin' ? 'admin' : 'epsi';
-    await resolverSolicitud(id, aprobar ? { aprobar: true, rol } : { aprobar: false });
+    await resolverSolicitud(id, aprobar ? { aprobar: true, rol } : { aprobar: false }, sesion.usuario);
     revalidatePath('/admin');
     return { ok: true, mensaje: aprobar ? 'Solicitud aprobada.' : 'Solicitud rechazada.' };
   } catch (e) {
