@@ -28,6 +28,7 @@ export async function Encabezado({ sesion, fechaCorte, almacenamiento }: { sesio
         </Link>
         <nav className="flex flex-wrap items-center gap-1 text-sm">
           {esEpsi(sesion.rol) ? <Enlace href="/epsi">Indicadores</Enlace> : <Enlace href="/prestador">Mis niños</Enlace>}
+          {esEpsi(sesion.rol) && <Enlace href="/seguimiento">Seguimiento</Enlace>}
           <Enlace href="/notificaciones">
             Notificaciones
             {pendientes > 0 && (
