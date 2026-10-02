@@ -108,7 +108,7 @@ export async function accionEnviarMensaje(_prev: EstadoAccion, form: FormData): 
   await enviarMensaje({ casoId, ips, tipo, texto, autorRol: s.rol, autorNombre: s.nombre });
   revalidatePath(casoId ? `/caso/${encodeURIComponent(casoId)}` : '/notificaciones');
   // Aviso por correo a la IPS (sin el contenido del mensaje)
-  if (tipo !== 'respuesta') {
+  if (tipo !== 'respuesta' && form.get('avisarCorreo') === 'si') {
     const aviso = await avisarMensajeIps(ips, tipo, !!casoId).catch(e => ({ ok: false, motivo: (e as Error).message }));
     return { ok: true, mensaje: aviso.ok ? 'Mensaje enviado y la IPS fue avisada por correo.' : `Mensaje enviado. No se avisó por correo: ${aviso.motivo}.` };
   }

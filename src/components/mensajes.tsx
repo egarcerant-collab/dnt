@@ -65,8 +65,14 @@ export function FormMensaje({ casoId, ips, esPrestador, opcionesIps }: { casoId?
       </div>
       <textarea name="texto" rows={3} required minLength={3} maxLength={2000} className="input"
         placeholder={esPrestador ? 'Escribe tu respuesta para la EPSI…' : 'Escribe la notificación o pregunta para el prestador…'} />
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button className="boton" disabled={pendiente}>{pendiente ? 'Enviando…' : esPrestador ? 'Responder' : 'Enviar'}</button>
+        {!esPrestador && (
+          <label className="flex items-center gap-1.5 text-xs text-slate-600">
+            <input type="checkbox" name="avisarCorreo" value="si" defaultChecked />
+            Avisar también por correo a la IPS
+          </label>
+        )}
         {estado && <span className={`text-sm ${estado.ok ? 'text-marca-700' : 'text-red-600'}`}>{estado.mensaje}</span>}
       </div>
     </form>

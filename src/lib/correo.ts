@@ -78,3 +78,12 @@ export async function verificarCorreo(): Promise<string> {
       : `ERROR: ${m}`;
   }
 }
+
+export interface CorreoEnviado { fecha: string; para: string[]; asunto: string; ok: boolean; motivo?: string }
+
+/** Historial de correos enviados (el más reciente primero). */
+export async function listarCorreosEnviados(): Promise<CorreoEnviado[]> {
+  const { getStore } = await import('./dnt/store');
+  const log = (await getStore().leer<CorreoEnviado[]>(ARCHIVO_LOG)) ?? [];
+  return [...log].reverse();
+}
