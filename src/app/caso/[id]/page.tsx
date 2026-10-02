@@ -113,7 +113,7 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
                 <th className="px-3 py-2">#</th><th className="px-3 py-2">Fecha</th><th className="px-3 py-2">Peso</th>
                 <th className="px-3 py-2">Talla</th><th className="px-3 py-2">Z P/T</th><th className="px-3 py-2">Clasificación</th>
                 <th className="px-3 py-2">Energía FTLC</th><th className="px-3 py-2">Medicamento</th>
-                <th className="px-3 py-2">Resultado</th><th className="px-3 py-2">Observaciones</th><th className="px-3 py-2">IPS / Profesional</th><th className="px-3 py-2">Origen</th>
+                <th className="px-3 py-2">Resultado</th><th className="px-3 py-2">Observaciones</th><th className="px-3 py-2">IPS / Profesional</th><th className="px-3 py-2">HC</th><th className="px-3 py-2">Origen</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -130,10 +130,16 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
                   <td className="max-w-xs px-3 py-2 text-xs text-slate-600">{k.resultado || '—'}</td>
                   <td className="max-w-xs px-3 py-2 text-xs text-slate-600">{k.observaciones || '—'}</td>
                   <td className="px-3 py-2 text-xs">{k.ips || '—'}<span className="block text-slate-500">{k.profesional || k.registradoPor || ''}</span></td>
+                  <td className="px-3 py-2 text-xs">
+                    {historias.filter(h => h.control === k.numero).map(h => (
+                      <a key={h.id} href={`/api/historias/${h.id}`} target="_blank" rel="noopener" className="block font-semibold text-marca-700 hover:underline">📄 Ver</a>
+                    ))}
+                    {!historias.some(h => h.control === k.numero) && <span className="font-semibold text-red-600">Falta</span>}
+                  </td>
                   <td className="px-3 py-2 text-xs">{k.origen === 'app' ? 'App' : 'Excel'}</td>
                 </tr>
               ))}
-              {!caso.controles.length && <tr><td colSpan={12} className="px-3 py-8 text-center text-red-600">Sin controles registrados.</td></tr>}
+              {!caso.controles.length && <tr><td colSpan={13} className="px-3 py-8 text-center text-red-600">Sin controles registrados.</td></tr>}
             </tbody>
           </table>
         </section>
@@ -168,7 +174,7 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
           </section>
           <section className="tarjeta flex flex-col gap-3 p-4">
             <h2 className="font-semibold">Historia clínica</h2>
-            <HistoriaClinica casoId={caso.id} historias={historias} puedeSubir={puedeRegistrar} puedeEliminar={sesion.rol === 'admin'} />
+            <HistoriaClinica casoId={caso.id} historias={historias} controles={caso.controles.map(k => ({ numero: k.numero, fecha: k.fecha }))} puedeSubir={puedeRegistrar} puedeEliminar={sesion.rol === 'admin'} />
           </section>
         </div>
       </main>

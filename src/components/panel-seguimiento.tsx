@@ -13,7 +13,7 @@ const FILTROS: [Filtro, string][] = [
   ['con-registros', 'Con registros del prestador'],
   ['sin-registros', 'Sin registros del prestador'],
   ['con-historia', 'Con historia clínica'],
-  ['sin-historia', 'Sin historia clínica'],
+  ['sin-historia', 'Controles sin historia clínica'],
   ['preguntas', 'Preguntas sin responder'],
 ];
 
@@ -58,7 +58,7 @@ export function PanelSeguimiento({ filas, eventos }: { filas: FilaTraza[]; event
         filtro === 'con-registros' ? f.controlesApp > 0 || f.historias.length > 0 || f.ax
         : filtro === 'sin-registros' ? f.controlesApp === 0 && f.historias.length === 0 && !f.ax
         : filtro === 'con-historia' ? f.historias.length > 0
-        : filtro === 'sin-historia' ? f.historias.length === 0
+        : filtro === 'sin-historia' ? f.controlesSinHc.length > 0
         : filtro === 'preguntas' ? f.sinResponder > 0
         : true,
       )
@@ -213,10 +213,13 @@ function FilaNino({ f, abierto, onToggle }: { f: FilaTraza; abierto: boolean; on
         <td className="px-3 py-2 text-xs">
           {f.historias.length ? (
             f.historias.map(h => (
-              <a key={h.id} href={`/api/historias/${h.id}`} target="_blank" rel="noopener" className="block font-medium text-marca-700 hover:underline">📄 {h.nombre}</a>
+              <a key={h.id} href={`/api/historias/${h.id}`} target="_blank" rel="noopener" className="block font-medium text-marca-700 hover:underline">📄 {h.control ? `C${h.control} · ` : ''}{h.nombre}</a>
             ))
           ) : (
             <span className="font-semibold text-red-600">No cargada</span>
+          )}
+          {f.historias.length > 0 && f.controlesSinHc.length > 0 && (
+            <span className="block font-semibold text-red-600">Falta en control {f.controlesSinHc.join(', ')}</span>
           )}
         </td>
         <td className="px-3 py-2 text-center text-xs">

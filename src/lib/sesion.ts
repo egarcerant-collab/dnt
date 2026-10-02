@@ -37,6 +37,25 @@ function firmar(valor: string) {
   return crypto.createHmac('sha256', secreto()).update(valor).digest('base64url');
 }
 
+/** Token firmado de corta duración (p. ej. autorización de una subida directa a Drive). */
+export function firmarToken(datos: object, segundos: number): string {
+  const cuerpo = Buffer.from(JSON.stringify({ ...datos, exp: Math.floor(Date.now() / 1000) + segundos })).toString('base64url');
+  return `${cuerpo}.${firmar(`token:${cuerpo}`)}`;
+}
+
+export function verificarToken<T>(token: string): T | null {
+  const [cuerpo, firma] = String(token ?? '').split('.');
+  if (!cuerpo || !firma) return null;
+  const esperada = firmar(`token:${cuerpo}`);
+  if (firma.length !== esperada.length || !crypto.timingSafeEqual(Buffer.from(firma), Buffer.from(esperada))) return null;
+  try {
+    const d = JSON.parse(Buffer.from(cuerpo, 'base64url').toString('utf-8'));
+    return d.exp > Date.now() / 1000 ? (d as T) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function codificarSesion(s: Omit<Sesion, 'exp'>): string {
   const cuerpo = Buffer.from(JSON.stringify({ ...s, exp: Math.floor(Date.now() / 1000) + DURACION_SEG })).toString('base64url');
   return `${cuerpo}.${firmar(cuerpo)}`;

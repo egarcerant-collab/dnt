@@ -1,33 +1,27 @@
 import { NextResponse } from 'next/server';
-import { leerExcel } from '@/lib/dnt/excel-source';
-import { TAMANO_MAX, guardarHistoria } from '@/lib/dnt/historias';
-import { getSesion } from '@/lib/sesion';
+import { TAMANO_MAX_SERVIDOR, guardarHistoria } from '@/lib/dnt/historias';
+import { autorizarCargaCaso } from '@/lib/dnt/permisos';
 
-/** Carga de historia clínica de un niño (PDF/JPG/PNG, máx. 10 MB). */
+/** Subida a través del servidor (almacenamiento local o archivos de hasta 4 MB). */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const sesion = await getSesion();
-  if (!sesion || sesion.debeCambiarClave || (sesion.rol !== 'prestador' && sesion.rol !== 'admin')) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-  }
   const id = decodeURIComponent((await params).id);
-  const caso = (await leerExcel()).casos.find(c => c.id === id);
-  if (!caso) return NextResponse.json({ error: 'Caso no encontrado' }, { status: 404 });
-  if (sesion.rol === 'prestador' && caso.ipsSeguimiento !== sesion.ips) {
-    return NextResponse.json({ error: 'El caso no pertenece a tu IPS' }, { status: 403 });
-  }
+  const auth = await autorizarCargaCaso(id);
+  if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.estado });
 
   const form = await req.formData().catch(() => null);
   const archivo = form?.get('archivo');
+  const control = Number(form?.get('control')) || undefined;
   if (!(archivo instanceof File) || archivo.size === 0) return NextResponse.json({ error: 'Adjunta un archivo' }, { status: 400 });
-  if (archivo.size > TAMANO_MAX) return NextResponse.json({ error: 'El archivo supera 10 MB' }, { status: 413 });
+  if (archivo.size > TAMANO_MAX_SERVIDOR) return NextResponse.json({ error: 'El archivo supera 4 MB' }, { status: 413 });
 
   try {
     await guardarHistoria({
       casoId: id,
-      ips: caso.ipsSeguimiento,
+      ips: auth.ips,
+      control,
       nombreOriginal: archivo.name,
       contenido: Buffer.from(await archivo.arrayBuffer()),
-      subidoPor: sesion.nombre,
+      subidoPor: auth.sesion.nombre,
     });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });

@@ -22,7 +22,9 @@ export interface FilaTraza {
   controlesApp: number;
   ultimoControl: string | null;
   ultimoRegistroApp: { fecha: string; por: string } | null;
-  historias: { id: string; nombre: string; fecha: string }[];
+  historias: { id: string; nombre: string; fecha: string; control?: number }[];
+  /** Controles que todavía no tienen su historia clínica. */
+  controlesSinHc: number[];
   mensajes: number;
   sinResponder: number;
   ax: boolean;
@@ -41,7 +43,7 @@ export interface EventoTraza {
 }
 
 /** Criterios de diligenciamiento que se revisan por niño (Res. 2350/2020 y libro de prestadores). */
-function completitud(c: Caso, tieneHistoria: boolean) {
+function completitud(c: Caso, controlesSinHc: number[]) {
   const ultimo = [...c.controles].filter(k => k.fecha).sort((a, b) => a.fecha!.localeCompare(b.fecha!)).at(-1);
   const criterios: [boolean, string][] = [
     [!!c.ipsAtencionPrimaria, 'IPS de atención primaria (AX)'],
@@ -50,7 +52,7 @@ function completitud(c: Caso, tieneHistoria: boolean) {
     [!!ultimo?.resultado, 'Resultado del seguimiento'],
     [!!ultimo?.profesional, 'Profesional que atiende'],
     [c.estado !== 'SIN DILIGENCIAR', 'Estado actual'],
-    [tieneHistoria, 'Historia clínica cargada'],
+    [c.controles.length > 0 && controlesSinHc.length === 0, controlesSinHc.length ? `Historia clínica de los controles ${controlesSinHc.join(', ')}` : 'Historia clínica de cada control'],
   ];
   const ok = criterios.filter(([v]) => v).length;
   return { porcentaje: Math.round((ok / criterios.length) * 100), pendientes: criterios.filter(([v]) => !v).map(([, t]) => t) };
@@ -67,6 +69,7 @@ export function construirTraza(casos: Caso[], historias: HistoriaClinica[], mens
   const filas: FilaTraza[] = casos.map(c => {
     const hs = histPorCaso.get(c.id) ?? [];
     const ms = msgPorCaso.get(c.id) ?? [];
+    const sinHc = c.controles.filter(k => !hs.some(h => h.control === k.numero)).map(k => k.numero);
     const app = c.controles.filter(k => k.origen === 'app');
     const ultimoApp = app.filter(k => k.registradoEn).sort((a, b) => a.registradoEn!.localeCompare(b.registradoEn!)).at(-1);
     const fechas = c.controles.map(k => k.fecha).filter((f): f is string => !!f).sort();
@@ -98,12 +101,13 @@ export function construirTraza(casos: Caso[], historias: HistoriaClinica[], mens
       estado: c.estado,
       ultimoZ: ultimoZ(c),
       semaforo: semaforoCaso(c).clave,
-      ...completitud(c, hs.length > 0),
+      ...completitud(c, sinHc),
+      controlesSinHc: sinHc,
       controlesExcel: c.controles.length - app.length,
       controlesApp: app.length,
       ultimoControl: fechas.at(-1) ?? null,
       ultimoRegistroApp: ultimoApp ? { fecha: ultimoApp.registradoEn!, por: ultimoApp.registradoPor ?? '' } : null,
-      historias: hs.map(h => ({ id: h.id, nombre: h.nombreOriginal, fecha: h.fecha })),
+      historias: hs.map(h => ({ id: h.id, nombre: h.nombreOriginal, fecha: h.fecha, control: h.control })),
       mensajes: ms.length,
       sinResponder,
       ax: !!c.ipsAtencionPrimaria,

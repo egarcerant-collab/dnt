@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ESTADOS, MAX_CONTROLES, NOMBRE_CONTROL, type Estado } from '@/lib/dnt/types';
 import { hoyColombia } from '@/lib/fecha';
+import { ACEPTA_HC, MB, TAMANO_MAX_HC, subirHistoria } from './subir-historia';
 
 /** Clasificación OMS peso/talla a partir del puntaje Z (Res. 2465/2016). */
 function clasificarZ(z: number): string {
@@ -24,6 +25,7 @@ async function enviar(casoId: string, cuerpo: object) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'No se pudo guardar');
+  return data as { ok: boolean; numero?: number };
 }
 
 /** Columna AX: IPS / ESE de atención primaria. */
@@ -67,6 +69,7 @@ export function FormControl({ casoId, profesional, ips, estadoActual, numeroSigu
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string } | null>(null);
   const [z, setZ] = useState('');
+  const [progreso, setProgreso] = useState<number | null>(null);
   const zNum = parseFloat(z.replace(',', '.'));
   const sugerida = Number.isFinite(zNum) ? clasificarZ(zNum) : '';
   const hoy = hoyColombia();
@@ -79,10 +82,15 @@ export function FormControl({ casoId, profesional, ips, estadoActual, numeroSigu
     e.preventDefault();
     const form = e.currentTarget;
     const fd = new FormData(form);
+    // Cada control debe llevar su historia clínica
+    const hc = fd.get('historia');
+    if (!(hc instanceof File) || hc.size === 0) return setMensaje({ ok: false, texto: 'Adjunta la historia clínica de este control.' });
+    if (hc.size > TAMANO_MAX_HC) return setMensaje({ ok: false, texto: `La historia clínica supera ${TAMANO_MAX_HC / MB} MB.` });
     setEnviando(true);
     setMensaje(null);
+    let numero: number | undefined;
     try {
-      await enviar(casoId, {
+      const r = await enviar(casoId, {
         fecha: fd.get('fecha'),
         peso: num(fd.get('peso')),
         talla: num(fd.get('talla')),
@@ -98,14 +106,25 @@ export function FormControl({ casoId, profesional, ips, estadoActual, numeroSigu
         profesional: fd.get('profesional'),
         estado: fd.get('estado') || undefined,
       });
-      setMensaje({ ok: true, texto: `Control ${numeroSiguiente} guardado.` });
+      numero = r.numero ?? numeroSiguiente;
+      setProgreso(0);
+      await subirHistoria(casoId, hc, numero, setProgreso);
+      setMensaje({ ok: true, texto: `Control ${numero} guardado con su historia clínica.` });
       form.reset();
       setZ('');
       router.refresh();
     } catch (err) {
-      setMensaje({ ok: false, texto: (err as Error).message });
+      const msg = (err as Error).message;
+      setMensaje({
+        ok: false,
+        texto: numero
+          ? `El control ${numero} se guardó, pero la historia clínica no se pudo subir (${msg}). Súbela en "Historia clínica" eligiendo el control ${numero}.`
+          : msg,
+      });
+      if (numero) router.refresh();
     } finally {
       setEnviando(false);
+      setProgreso(null);
     }
   }
 
@@ -140,6 +159,17 @@ export function FormControl({ casoId, profesional, ips, estadoActual, numeroSigu
 
       <fieldset className="grid gap-3 lg:grid-cols-2">
         <legend className="mb-2 text-sm font-semibold text-slate-700">Seguimiento</legend>
+        <label className="flex flex-col gap-1 rounded-lg border-2 border-dashed border-marca-600 bg-marca-50 p-3 text-sm lg:col-span-2">
+          <span className="font-semibold text-marca-900">Historia clínica de este control * (obligatoria)</span>
+          <input name="historia" type="file" required accept={ACEPTA_HC}
+            className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-marca-600 file:px-3 file:py-2 file:text-white" />
+          <span className="text-xs text-slate-600">PDF, JPG o PNG · máx. {TAMANO_MAX_HC / MB} MB. Queda ligada al control {numeroSiguiente}.</span>
+          {progreso != null && (
+            <span className="mt-1 block h-2 rounded bg-white">
+              <span className="block h-2 rounded bg-marca-600 transition-all" style={{ width: `${progreso}%` }} />
+            </span>
+          )}
+        </label>
         <Campo label="Recomendaciones y manejo"><textarea name="recomendaciones" rows={3} maxLength={1500} className="input" /></Campo>
         <Campo label="Resultados del seguimiento *"><textarea name="resultado" rows={3} required maxLength={1500} className="input" placeholder="Tolerancia a FTLC, ganancia de peso, signos de alarma…" /></Campo>
         <Campo label="Observaciones"><textarea name="observaciones" rows={2} maxLength={1500} className="input" /></Campo>

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { anularHistoria, listarHistorias } from '@/lib/dnt/historias';
-import { getStore } from '@/lib/dnt/store';
+import { DriveStore, getStore } from '@/lib/dnt/store';
 import { esEpsi, getSesion } from '@/lib/sesion';
 
 /** Descarga protegida: EPSI/admin cualquier historia; el prestador solo las de su IPS. Las anuladas solo las ve el administrador. */
@@ -13,10 +13,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ hid: st
   if (!h) return new Response('No encontrado', { status: 404 });
   if (!esEpsi(sesion.rol) && h.ips !== sesion.ips) return new Response('No autorizado', { status: 403 });
 
-  const contenido = await getStore().leerArchivo(h.archivo);
-  if (!contenido) return new Response('Archivo no disponible', { status: 404 });
+  const store = getStore();
+  // En Drive se transmite por partes: los PDF grandes no pasan por el límite de 4,5 MB de Vercel
+  const cuerpo = store instanceof DriveStore ? await store.descargarFlujo(h.archivo) : await store.leerArchivo(h.archivo).then(b => (b ? new Uint8Array(b) : null));
+  if (!cuerpo) return new Response('Archivo no disponible', { status: 404 });
 
-  return new Response(new Uint8Array(contenido), {
+  return new Response(cuerpo, {
     headers: {
       'Content-Type': h.mime,
       'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(h.nombreOriginal)}`,

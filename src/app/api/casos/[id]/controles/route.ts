@@ -59,9 +59,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
     const entrada = validar(body);
     if (typeof entrada === 'string') return NextResponse.json({ error: entrada }, { status: 400 });
-    await registrarControl(id, entrada, sesion.nombre);
+    const numero = await registrarControl(id, entrada, sesion.nombre);
+    return NextResponse.json({ ok: true, numero });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }
-  return NextResponse.json({ ok: true });
 }

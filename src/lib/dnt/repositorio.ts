@@ -98,10 +98,11 @@ export async function obtenerCaso(id: string): Promise<{ caso: Caso; fechaCorte:
 }
 
 /** Guarda un control diligenciado por el prestador (siguiente bloque libre de AY..KF). */
-export async function registrarControl(id: string, input: NuevoControlInput, usuario: string): Promise<void> {
+export async function registrarControl(id: string, input: NuevoControlInput, usuario: string): Promise<number> {
   const base = (await leerExcel()).casos.find(c => c.id === id);
   if (!base) throw new Error('Caso no encontrado');
   const ahora = new Date().toISOString();
+  let numero = 0;
 
   await actualizarJson<SeguimientosApp>(ARCHIVO_SEGUIMIENTOS, () => ({}), app => {
     const reg: RegistroApp = app[id] ?? { controles: [], actualizadoEn: '' };
@@ -109,6 +110,7 @@ export async function registrarControl(id: string, input: NuevoControlInput, usu
       throw new Error(`El libro admite máximo ${MAX_CONTROLES} controles por niño`);
     }
     reg.controles.push({ numero: 0, ...input, origen: 'app', registradoPor: usuario, registradoEn: ahora });
+    numero = base.controles.length + reg.controles.length;
     if (input.estado) {
       reg.estado = input.estado;
       if (input.estado === 'RECUPERADO') reg.fechaRecuperacion = input.fecha;
@@ -116,6 +118,7 @@ export async function registrarControl(id: string, input: NuevoControlInput, usu
     reg.actualizadoEn = ahora;
     app[id] = reg;
   });
+  return numero;
 }
 
 /** Columna AX: IPS / ESE de atención primaria, diligenciada por el prestador. */

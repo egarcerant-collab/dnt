@@ -64,9 +64,76 @@ class LocalStore implements JsonStore {
   }
 }
 
-class DriveStore implements JsonStore {
+export class DriveStore implements JsonStore {
   readonly tipo = 'drive' as const;
   constructor(private folderId: string, private credenciales: object) {}
+
+  private auth?: Promise<import('google-auth-library').GoogleAuth>;
+
+  /** Una sola autenticación por instancia: el token se reutiliza y se renueva solo. */
+  private credencialesAuth() {
+    this.auth ??= import('googleapis').then(({ google }) =>
+      new google.auth.GoogleAuth({ credentials: this.credenciales, scopes: ['https://www.googleapis.com/auth/drive'] }),
+    );
+    return this.auth;
+  }
+
+  /**
+   * Inicia una subida reanudable para que el NAVEGADOR envíe el archivo directo a Drive
+   * (evita el límite de 4,5 MB de Vercel). Devuelve la URL de subida de Google.
+   */
+  async iniciarSubidaDirecta(nombre: string, mime: string, tamano: number, origen: string): Promise<string> {
+    if (!NOMBRE_SEGURO.test(nombre)) throw new Error('Nombre de archivo inválido');
+    const carpeta = await this.carpetaId(DriveStore.carpetaPara(nombre));
+    const token = await (await this.credencialesAuth()).getAccessToken();
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id,size,name', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+        'X-Upload-Content-Type': mime,
+        'X-Upload-Content-Length': String(tamano),
+        Origin: origen, // Google habilita CORS para este origen en la URL de subida
+      },
+      body: JSON.stringify({ name: nombre, parents: [carpeta], mimeType: mime }),
+    });
+    const url = res.headers.get('location');
+    if (!res.ok || !url) throw new Error(`Drive no aceptó la subida (${res.status})`);
+    return url;
+  }
+
+  /** Verifica un archivo subido directo: nombre esperado, tamaño y firma real (primeros bytes). */
+  async verificarSubida(fileId: string, nombreEsperado: string): Promise<{ tamano: number; inicio: Buffer }> {
+    const drive = await this.drive();
+    const meta = await drive.files.get({ fileId, fields: 'id,name,size,parents', supportsAllDrives: true });
+    if (meta.data.name !== nombreEsperado) throw new Error('El archivo subido no corresponde a la autorización');
+    const token = await (await this.credencialesAuth()).getAccessToken();
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, {
+      headers: { Authorization: `Bearer ${token}`, Range: 'bytes=0-15' },
+    });
+    const inicio = Buffer.from(await res.arrayBuffer());
+    this.ids.set(nombreEsperado, fileId);
+    return { tamano: Number(meta.data.size ?? 0), inicio };
+  }
+
+  async eliminarPorId(fileId: string) {
+    const drive = await this.drive();
+    await drive.files.delete({ fileId, supportsAllDrives: true }).catch(() => undefined);
+  }
+
+  /** Descarga como flujo (sin cargar todo en memoria) para archivos grandes. */
+  async descargarFlujo(nombre: string): Promise<ReadableStream<Uint8Array> | null> {
+    const { id } = await this.buscarId(nombre);
+    if (!id) return null;
+    const token = await (await this.credencialesAuth()).getAccessToken();
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.status === 404) {
+      this.ids.delete(nombre);
+      return null;
+    }
+    if (!res.ok || !res.body) throw new Error(`No se pudo descargar de Drive (${res.status})`);
+    return res.body;
+  }
 
   private carpetas = new Map<string, Promise<string>>();
   /** Id de cada archivo en Drive (evita buscarlo en cada lectura). */
@@ -78,16 +145,8 @@ class DriveStore implements JsonStore {
 
   /** Un solo cliente autenticado por instancia: el token se reutiliza y se renueva solo. */
   private drive() {
-    this.cliente ??= import('googleapis').then(({ google }) =>
-      google.drive({
-        version: 'v3',
-        auth: new google.auth.GoogleAuth({
-          credentials: this.credenciales,
-          // La cuenta de servicio solo ve las carpetas compartidas con ella
-          scopes: ['https://www.googleapis.com/auth/drive'],
-        }),
-      }),
-    );
+    // La cuenta de servicio solo ve las carpetas compartidas con ella
+    this.cliente ??= Promise.all([import('googleapis'), this.credencialesAuth()]).then(([{ google }, auth]) => google.drive({ version: 'v3', auth }));
     return this.cliente;
   }
 
