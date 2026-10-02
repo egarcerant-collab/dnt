@@ -7,10 +7,31 @@ export interface HistoriaVista { id: string; nombreOriginal: string; tamano: num
 
 const MB = 1024 * 1024;
 
-export function HistoriaClinica({ casoId, historias, puedeSubir }: { casoId: string; historias: HistoriaVista[]; puedeSubir: boolean }) {
+export function HistoriaClinica({ casoId, historias, puedeSubir, puedeEliminar = false }: {
+  casoId: string;
+  historias: HistoriaVista[];
+  puedeSubir: boolean;
+  puedeEliminar?: boolean;
+}) {
   const router = useRouter();
   const [estado, setEstado] = useState<{ ok: boolean; t: string } | null>(null);
   const [subiendo, setSubiendo] = useState(false);
+
+  /** Solo administrador: se anula con motivo; el archivo se conserva en Drive (Res. 1995/1999). */
+  async function eliminar(h: HistoriaVista) {
+    const motivo = window.prompt(
+      `¿Eliminar "${h.nombreOriginal}"?\n\nDejará de verse en la app, pero el archivo se conserva en Drive por obligación legal.\nEscribe el motivo (ej.: archivo de otro paciente, duplicado):`,
+    );
+    if (motivo === null) return;
+    const res = await fetch(`/api/historias/${h.id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ motivo }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setEstado(res.ok ? { ok: true, t: 'Historia clínica eliminada.' } : { ok: false, t: data.error || 'No se pudo eliminar' });
+    if (res.ok) router.refresh();
+  }
 
   async function subir(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -43,8 +64,13 @@ export function HistoriaClinica({ casoId, historias, puedeSubir }: { casoId: str
           {historias.map(h => (
             <li key={h.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <a href={`/api/historias/${h.id}`} target="_blank" rel="noopener" className="font-medium text-marca-700 hover:underline">{h.nombreOriginal}</a>
-              <span className="text-xs text-slate-500">
+              <span className="flex items-center gap-3 text-xs text-slate-500">
                 {(h.tamano / MB).toFixed(2)} MB · {h.subidoPor} · {new Date(h.fecha).toLocaleDateString('es-CO', { timeZone: 'America/Bogota' })}
+                {puedeEliminar && (
+                  <button type="button" onClick={() => eliminar(h)} className="rounded border border-red-200 px-2 py-0.5 font-medium text-red-700 hover:bg-red-50">
+                    Eliminar
+                  </button>
+                )}
               </span>
             </li>
           ))}

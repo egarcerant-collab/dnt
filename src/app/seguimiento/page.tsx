@@ -15,7 +15,7 @@ export default async function Seguimiento() {
   if (!sesion) redirect('/');
   if (!esEpsi(sesion.rol)) redirect('/prestador');
 
-  const [base, historias, mensajes] = await Promise.all([obtenerBase(), listarHistorias(), listarMensajes()]);
+  const [base, historias, mensajes] = await Promise.all([obtenerBase(), listarHistorias(undefined, { incluirAnuladas: true }), listarMensajes()]);
   const { filas, eventos } = construirTraza(base.casos, historias, mensajes);
 
   return (

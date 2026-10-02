@@ -19,6 +19,7 @@ const FILTROS: [Filtro, string][] = [
 const ICONO: Record<TipoEvento, { t: string; c: string }> = {
   control: { t: 'Control', c: 'bg-marca-100 text-marca-800' },
   historia: { t: 'Historia clínica', c: 'bg-emerald-100 text-emerald-800' },
+  anulacion: { t: 'Historia eliminada', c: 'bg-red-100 text-red-800' },
   respuesta: { t: 'Respuesta IPS', c: 'bg-slate-100 text-slate-700' },
   notificacion: { t: 'Notificación EPSI', c: 'bg-sky-100 text-sky-800' },
   pregunta: { t: 'Pregunta EPSI', c: 'bg-amber-100 text-amber-800' },

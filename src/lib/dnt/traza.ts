@@ -24,7 +24,7 @@ export interface FilaTraza {
   ax: boolean;
 }
 
-export type TipoEvento = 'control' | 'historia' | 'respuesta' | 'notificacion' | 'pregunta';
+export type TipoEvento = 'control' | 'historia' | 'anulacion' | 'respuesta' | 'notificacion' | 'pregunta';
 
 export interface EventoTraza {
   fecha: string;
@@ -54,7 +54,8 @@ function completitud(c: Caso, tieneHistoria: boolean) {
 
 export function construirTraza(casos: Caso[], historias: HistoriaClinica[], mensajes: Mensaje[]) {
   const histPorCaso = new Map<string, HistoriaClinica[]>();
-  historias.forEach(h => histPorCaso.set(h.casoId, [...(histPorCaso.get(h.casoId) ?? []), h]));
+  // Las anuladas no cuentan como cargadas, pero sí dejan rastro en la actividad
+  historias.filter(h => !h.anulada).forEach(h => histPorCaso.set(h.casoId, [...(histPorCaso.get(h.casoId) ?? []), h]));
   const msgPorCaso = new Map<string, Mensaje[]>();
   mensajes.forEach(m => m.casoId && msgPorCaso.set(m.casoId, [...(msgPorCaso.get(m.casoId) ?? []), m]));
 
@@ -74,7 +75,10 @@ export function construirTraza(casos: Caso[], historias: HistoriaClinica[], mens
         detalle: `Control ${k.numero} · ${k.peso ?? '—'} kg · ${k.talla ?? '—'} cm · Z ${k.zPesoTalla ?? '—'}${k.clasificacion ? ' · ' + k.clasificacion : ''}`,
       }),
     );
-    hs.forEach(h => eventos.push({ fecha: h.fecha, tipo: 'historia', casoId: c.id, nino: c.nombre, ips: c.ipsSeguimiento, por: h.subidoPor, detalle: `Historia clínica: ${h.nombreOriginal}` }));
+    historias.filter(h => h.casoId === c.id).forEach(h => {
+      eventos.push({ fecha: h.fecha, tipo: 'historia', casoId: c.id, nino: c.nombre, ips: c.ipsSeguimiento, por: h.subidoPor, detalle: `Historia clínica: ${h.nombreOriginal}` });
+      if (h.anulada) eventos.push({ fecha: h.anulada.fecha, tipo: 'anulacion', casoId: c.id, nino: c.nombre, ips: c.ipsSeguimiento, por: h.anulada.por, detalle: `Eliminó la historia clínica ${h.nombreOriginal}. Motivo: ${h.anulada.motivo}` });
+    });
 
     // Preguntas de la EPSI sin una respuesta posterior del prestador
     const sinResponder = ms.filter(m => m.tipo === 'pregunta' && !ms.some(r => r.tipo === 'respuesta' && r.fecha > m.fecha)).length;

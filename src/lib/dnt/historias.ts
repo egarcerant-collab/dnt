@@ -13,6 +13,11 @@ export interface HistoriaClinica {
   tamano: number;
   subidoPor: string;
   fecha: string;
+  /**
+   * Anulación por el administrador. El archivo NO se borra de Drive: la historia clínica
+   * debe conservarse (Res. 1995/1999); solo deja de mostrarse y queda la trazabilidad.
+   */
+  anulada?: { por: string; fecha: string; motivo: string };
 }
 
 const ARCHIVO = 'historias.json';
@@ -26,9 +31,21 @@ export function detectarTipo(b: Buffer): { mime: string; ext: 'pdf' | 'jpg' | 'p
   return null;
 }
 
-export async function listarHistorias(casoId?: string): Promise<HistoriaClinica[]> {
+/** Por defecto excluye las anuladas; `incluirAnuladas` se usa para auditoría. */
+export async function listarHistorias(casoId?: string, opciones?: { incluirAnuladas?: boolean }): Promise<HistoriaClinica[]> {
   const todas = (await getStore().leer<HistoriaClinica[]>(ARCHIVO)) ?? [];
-  return casoId ? todas.filter(h => h.casoId === casoId) : todas;
+  return todas.filter(h => (!casoId || h.casoId === casoId) && (opciones?.incluirAnuladas || !h.anulada));
+}
+
+export async function anularHistoria(id: string, por: string, motivo: string) {
+  const m = motivo.trim();
+  if (m.length < 5) throw new Error('Escribe el motivo de la eliminación (mínimo 5 caracteres)');
+  await actualizarJson<HistoriaClinica[]>(ARCHIVO, () => [], lista => {
+    const h = lista.find(x => x.id === id);
+    if (!h) throw new Error('Historia clínica no encontrada');
+    if (h.anulada) throw new Error('La historia clínica ya fue eliminada');
+    h.anulada = { por, fecha: new Date().toISOString(), motivo: m.slice(0, 300) };
+  });
 }
 
 export async function guardarHistoria(datos: { casoId: string; ips: string; nombreOriginal: string; contenido: Buffer; subidoPor: string }) {

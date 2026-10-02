@@ -167,7 +167,7 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
           </section>
           <section className="tarjeta flex flex-col gap-3 p-4">
             <h2 className="font-semibold">Historia clínica</h2>
-            <HistoriaClinica casoId={caso.id} historias={historias} puedeSubir={puedeRegistrar} />
+            <HistoriaClinica casoId={caso.id} historias={historias} puedeSubir={puedeRegistrar} puedeEliminar={sesion.rol === 'admin'} />
           </section>
         </div>
       </main>
