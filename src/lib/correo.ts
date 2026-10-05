@@ -3,10 +3,10 @@ import { actualizarJson } from './dnt/store';
 
 /**
  * Envío de correos desde la cuenta de Google Workspace de Dusakawi (SMTP de Gmail).
- * Requiere en el servidor: SMTP_USER (ej. egarcerant@dusakawiepsi.com) y SMTP_PASS (contraseña de aplicación).
+ * Requiere en el servidor: SMTP_USER (cuenta institucional nutria@dusakawiepsi.com) y SMTP_PASS (contraseña de aplicación).
  * Regla: los correos NO llevan datos de los niños; solo cifras y el enlace a la app.
  */
-export const REMITENTE = process.env.SMTP_USER || 'egarcerant@dusakawiepsi.com';
+export const REMITENTE = process.env.SMTP_USER || 'nutria@dusakawiepsi.com';
 export const URL_APP = process.env.APP_URL || 'https://dnt-nine.vercel.app';
 
 export const correoConfigurado = () => !!(process.env.SMTP_USER && process.env.SMTP_PASS);
