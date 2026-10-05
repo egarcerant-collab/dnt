@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { gzipSync } from 'zlib';
 import { enviarCorreo, plantilla } from './correo';
 import { getStore } from './dnt/store';
-import { hoyColombia } from './fecha';
+import { horaColombia, hoyColombia } from './fecha';
 
 /**
  * Respaldo diario de la información de la app (03_DATOS_APP):
@@ -55,7 +55,8 @@ export async function crearRespaldo(origen: 'automatico' | 'manual', por = 'sist
   }
 
   const fecha = hoyColombia();
-  const nombre = `respaldo-${fecha}.json.gz`;
+  const hora = horaColombia();
+  const nombre = `respaldo-${fecha}-${hora}.json.gz`;
   const paquete = gzipSync(Buffer.from(JSON.stringify({ app: 'Nutria', creado: new Date().toISOString(), origen, por, archivos: contenido })));
   await store.guardarArchivo(nombre, paquete, 'application/gzip');
 
@@ -82,7 +83,7 @@ export async function crearRespaldo(origen: 'automatico' | 'manual', por = 'sist
     ['Respaldos antiguos eliminados', eliminados.length],
   ];
   const { html, texto } = plantilla(
-    `Respaldo ${origen === 'automatico' ? 'diario' : 'manual'} · ${fecha}`,
+    `Respaldo ${origen === 'automatico' ? 'diario' : 'manual'} · ${fecha} ${hora.replace('h', ':')}`,
     [
       `Se creó el respaldo de la información de Nutria y quedó guardado en Google Drive (carpeta 04_RESPALDOS, se conservan ${DIAS_RETENCION} días).`,
       adjunto
@@ -93,7 +94,7 @@ export async function crearRespaldo(origen: 'automatico' | 'manual', por = 'sist
   );
   const correo = await enviarCorreo({
     para: [DESTINO_RESPALDO],
-    asunto: `Respaldo Nutria ${fecha}${adjunto ? ' (adjunto cifrado)' : ''}`,
+    asunto: `Respaldo Nutria ${fecha} ${hora.replace('h', ':')}${adjunto ? ' (adjunto cifrado)' : ''}`,
     html,
     texto,
     adjuntos: adjunto ? [adjunto] : undefined,

@@ -23,8 +23,8 @@ export interface JsonStore {
   eliminarRespaldo(nombre: string): Promise<void>;
 }
 
-const NOMBRE_SEGURO = /^([a-z0-9-]+\.(pdf|jpg|png|xlsx)|respaldo-\d{4}-\d{2}-\d{2}\.json\.gz)$/;
-export const esRespaldo = (n: string) => /^respaldo-\d{4}-\d{2}-\d{2}\.json\.gz$/.test(n);
+const NOMBRE_SEGURO = /^([a-z0-9-]+\.(pdf|jpg|png|xlsx)|respaldo-\d{4}-\d{2}-\d{2}(-\d{2}h\d{2})?\.json\.gz)$/;
+export const esRespaldo = (n: string) => /^respaldo-\d{4}-\d{2}-\d{2}(-\d{2}h\d{2})?\.json\.gz$/.test(n);
 export interface ArchivoRespaldo { nombre: string; tamano: number; fecha: string }
 
 class LocalStore implements JsonStore {
