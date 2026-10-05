@@ -175,9 +175,10 @@ class Documento {
       for (const [k, fm] of firmantes.slice(i, i + porFila).entries()) {
         const x = X0 + k * anchoBloque;
         const ancho = Math.min(anchoBloque - 18, 170);
-        const bytes = await imagenFirma(fm.firma.archivo);
-        if (bytes) {
-          const img = fm.firma.archivo.endsWith('.png') ? await this.pdf.embedPng(bytes) : await this.pdf.embedJpg(bytes);
+        const bytes = await imagenFirma(fm.firma.archivo).catch(() => null);
+        // Una imagen dañada o en formato no soportado no impide generar el informe: queda la línea de firma
+        const img = bytes ? await (fm.firma.archivo.endsWith('.png') ? this.pdf.embedPng(bytes) : this.pdf.embedJpg(bytes)).catch(() => null) : null;
+        if (img) {
           const esc = Math.min(ancho / img.width, 52 / img.height);
           this.pagina.drawImage(img, { x, y: yBase - 56, width: img.width * esc, height: img.height * esc });
         }
