@@ -8,3 +8,8 @@ body { @apply bg-slate-50 text-slate-800 antialiased; }
 .input { @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-marca-600 focus:outline-none focus:ring-2 focus:ring-marca-100; }
 .boton { @apply inline-flex items-center justify-center rounded-lg bg-marca-600 px-4 py-2 text-sm font-semibold text-white hover:bg-marca-700 disabled:opacity-50; }
 .boton-sec { @apply inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50; }
+
+@keyframes cargando {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}

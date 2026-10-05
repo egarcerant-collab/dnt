@@ -52,7 +52,7 @@ interface Nino {
 
 function leerBase(buf: Buffer): Nino[] {
   const wb    = XLSX.read(buf, { cellDates: true });
-  const filas = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[HOJA], { header: 1, defval: null, raw: true })
+  const filas = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[HOJA], { header: 1, defval: null, raw: true, range: { s: { r: 0, c: 0 }, e: { r: XLSX.utils.decode_range(wb.Sheets[HOJA]['!ref'] ?? 'A1').e.r, c: 291 } } /* solo A..KF: la hoja trae formato hasta XFD */ })
     .slice(3).filter(r => r[9] != null);
   const vistos = new Map<string, number>();
   return filas.map(r => {

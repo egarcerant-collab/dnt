@@ -141,7 +141,7 @@ export class DriveStore implements JsonStore {
   private ids = new Map<string, string>();
   /** Copia en memoria de los JSON leídos; se actualiza al escribir. */
   private cacheJson = new Map<string, { hasta: number; valor: unknown }>();
-  private static TTL_JSON_MS = 15_000;
+  private static TTL_JSON_MS = 30_000;
   private cliente?: Promise<import('googleapis').drive_v3.Drive>;
 
   /** Un solo cliente autenticado por instancia: el token se reutiliza y se renueva solo. */
@@ -233,14 +233,42 @@ export class DriveStore implements JsonStore {
     if (creado.data.id) this.ids.set(nombre, creado.data.id);
   }
 
+  /** Lecturas en curso por archivo (evita pedir el mismo archivo varias veces a la vez). */
+  private enCurso = new Map<string, Promise<unknown>>();
+  /** Pasado el TTL se sirve la copia en memoria y se refresca en segundo plano, hasta este límite. */
+  private static MAX_OBSOLETO_MS = 10 * 60_000;
+
+  private refrescar<T>(nombre: string): Promise<T | null> {
+    let p = this.enCurso.get(nombre) as Promise<T | null> | undefined;
+    if (!p) {
+      p = (async () => {
+        const { id } = await this.buscarId(nombre);
+        const contenido = id ? await this.descargar(nombre, id) : null;
+        const valor = contenido ? (JSON.parse(contenido.toString('utf-8')) as T) : null;
+        this.cacheJson.set(nombre, { hasta: Date.now() + DriveStore.TTL_JSON_MS, valor });
+        return valor;
+      })().finally(() => this.enCurso.delete(nombre));
+      this.enCurso.set(nombre, p);
+    }
+    return p;
+  }
+
+  /**
+   * Lectura con "stale-while-revalidate": responde al instante con la copia en memoria y,
+   * si ya venció, la actualiza desde Drive en segundo plano. `fresco` obliga a leer de Drive
+   * (se usa al guardar, para no pisar cambios de otros usuarios).
+   */
   async leer<T>(nombre: string, opciones?: { fresco?: boolean }): Promise<T | null> {
     const c = this.cacheJson.get(nombre);
-    if (!opciones?.fresco && c && c.hasta > Date.now()) return structuredClone(c.valor) as T | null;
-    const { id } = await this.buscarId(nombre);
-    const contenido = id ? await this.descargar(nombre, id) : null;
-    const valor = contenido ? (JSON.parse(contenido.toString('utf-8')) as T) : null;
-    this.cacheJson.set(nombre, { hasta: Date.now() + DriveStore.TTL_JSON_MS, valor });
-    return structuredClone(valor);
+    const ahora = Date.now();
+    if (!opciones?.fresco && c) {
+      if (c.hasta > ahora) return structuredClone(c.valor) as T | null;
+      if (c.hasta + DriveStore.MAX_OBSOLETO_MS > ahora) {
+        this.refrescar<T>(nombre).catch(() => undefined);
+        return structuredClone(c.valor) as T | null;
+      }
+    }
+    return structuredClone(await this.refrescar<T>(nombre));
   }
 
   async escribir(nombre: string, data: unknown): Promise<void> {

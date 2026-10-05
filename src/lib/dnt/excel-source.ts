@@ -201,18 +201,43 @@ export async function leerExcel(): Promise<DatosExcel> {
     return datos;
   }
 
-  if (g.__dntBase && g.__dntBase.clave === 'almacenamiento' && g.__dntBase.hasta > Date.now()) return g.__dntBase.datos;
-  const { getStore } = await import('./store');
-  const contenido = await getStore().leerArchivo(ARCHIVO_BASE);
-  const datos = contenido ? procesarLibro(contenido, 'almacenamiento') : VACIO;
-  g.__dntBase = { clave: 'almacenamiento', hasta: Date.now() + TTL_ALMACENAMIENTO_MS, datos };
-  return datos;
+  const cache = g.__dntBase?.clave === 'almacenamiento' ? g.__dntBase : undefined;
+  if (cache && cache.hasta > Date.now()) return cache.datos;
+  // Vencida pero disponible: se responde al instante y se recarga en segundo plano
+  if (cache && cache.datos.disponible) {
+    recargarBase().catch(() => undefined);
+    return cache.datos;
+  }
+  return recargarBase();
+}
+
+const gp = globalThis as { __dntRecargaBase?: Promise<DatosExcel> };
+
+/** Descarga y procesa la base desde el almacenamiento (una sola recarga a la vez). */
+function recargarBase(): Promise<DatosExcel> {
+  gp.__dntRecargaBase ??= (async () => {
+    const { getStore } = await import('./store');
+    const contenido = await getStore().leerArchivo(ARCHIVO_BASE);
+    const datos = contenido ? procesarLibro(contenido, 'almacenamiento') : VACIO;
+    g.__dntBase = { clave: 'almacenamiento', hasta: Date.now() + TTL_ALMACENAMIENTO_MS, datos };
+    return datos;
+  })().finally(() => (gp.__dntRecargaBase = undefined));
+  return gp.__dntRecargaBase;
+}
+
+/** Rango A..KF de la hoja: el libro trae formato hasta la columna XFD y recorrerla tomaba ~9 s. */
+function rangoMatriz(ws: XLSX.WorkSheet): XLSX.Range {
+  const d = XLSX.utils.decode_range(ws['!ref'] ?? 'A1');
+  return { s: { r: 0, c: 0 }, e: { r: d.e.r, c: Math.min(d.e.c, TOTAL_COLUMNAS - 1) } };
 }
 
 function procesarLibro(contenido: Buffer, origen: DatosExcel['origen']): DatosExcel {
-  const wb = XLSX.read(contenido, { cellDates: true });
+  // Solo se leen las hojas que usa la app
+  const nombres = XLSX.read(contenido, { bookSheets: true }).SheetNames;
+  const hojaSem = nombres.find(n => /^SEM \d+$/.test(n));
+  const wb = XLSX.read(contenido, { cellDates: true, sheets: [HOJA_SEGUIMIENTO, ...(hojaSem ? [hojaSem] : [])] });
   const filas = XLSX.utils
-    .sheet_to_json<unknown[]>(wb.Sheets[HOJA_SEGUIMIENTO], { header: 1, defval: null, raw: true })
+    .sheet_to_json<unknown[]>(wb.Sheets[HOJA_SEGUIMIENTO], { header: 1, defval: null, raw: true, range: rangoMatriz(wb.Sheets[HOJA_SEGUIMIENTO]) })
     .slice(FILA_INICIO_DATOS)
     .filter(r => r[COL.id] != null);
 

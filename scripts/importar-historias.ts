@@ -85,7 +85,7 @@ interface Nino { casoId: string; doc: string; nombres: string[]; apellidos: stri
 
 function leerBase(contenido: Buffer, app: Record<string, { controles?: { fecha: string | null }[] }>): Nino[] {
   const wb = XLSX.read(contenido, { cellDates: true });
-  const filas = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[HOJA], { header: 1, defval: null, raw: true }).slice(3).filter(r => r[9] != null);
+  const filas = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[HOJA], { header: 1, defval: null, raw: true, range: { s: { r: 0, c: 0 }, e: { r: XLSX.utils.decode_range(wb.Sheets[HOJA]['!ref'] ?? 'A1').e.r, c: 291 } } /* solo A..KF: la hoja trae formato hasta XFD */ }).slice(3).filter(r => r[9] != null);
   const vistos = new Map<string, number>();
   return filas.map(r => {
     const doc = String(r[9]).trim();
