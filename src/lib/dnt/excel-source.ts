@@ -17,6 +17,8 @@ const COL = {
   ipsAtencionPrimaria: 49, // AX: primera columna que diligencia el prestador
 } as const;
 export const COL_AX = COL.ipsAtencionPrimaria;
+/** Columnas de ubicación que la EPSI puede corregir (mover el caso). */
+export const COL_UBICACION = { departamento: COL.depto, municipio: COL.municipio, ipsSeguimiento: COL.ipsSeg } as const;
 export const TOTAL_COLUMNAS = 292; // A..KF
 
 // Bloques de control: [columna "Fecha de consulta", tamaño del bloque].

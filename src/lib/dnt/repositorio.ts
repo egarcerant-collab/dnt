@@ -1,4 +1,5 @@
 import 'server-only';
+import { aplicarAjuste, leerAjustes } from './ajustes';
 import { leerExcel, norm } from './excel-source';
 import { actualizarJson, getStore } from './store';
 import { hoyColombia } from '../fecha';
@@ -49,15 +50,24 @@ export interface Base {
   baseDisponible: boolean;
   origenBase: 'archivo-local' | 'almacenamiento' | 'ninguno';
   sivigila: { hoja: string | null; total: number; sinSeguimiento: number };
+  /** Registros eliminados por la EPSI (ocultos en toda la app, restaurables por el administrador). */
+  eliminados: { id: string; nombre: string; documento: string; ips: string; motivo: string; por: string; fecha: string }[];
 }
 
 export async function obtenerBase(): Promise<Base> {
   const store = getStore();
   // Base y controles se leen en paralelo
-  const [excel, appLeido] = await Promise.all([leerExcel(), store.leer<SeguimientosApp>(ARCHIVO_SEGUIMIENTOS)]);
+  const [excel, appLeido, ajustes] = await Promise.all([leerExcel(), store.leer<SeguimientosApp>(ARCHIVO_SEGUIMIENTOS), leerAjustes()]);
   const app = appLeido ?? {};
 
-  const casos: Caso[] = excel.casos.map(base => {
+  const eliminados: Base['eliminados'] = [];
+  const vigentes = excel.casos.filter(c => {
+    const e = ajustes[c.id]?.eliminado;
+    if (e) eliminados.push({ id: c.id, nombre: c.nombre, documento: `${c.tipoDocumento} ${c.documento}`, ips: c.ipsSeguimiento, ...e });
+    return !e;
+  });
+  const casos: Caso[] = vigentes.map(original => {
+    const base = aplicarAjuste(original, ajustes[original.id]);
     const reg = app[base.id];
     const siv = excel.sivigila.get(base.documento);
     const controles = [...base.controles, ...(reg?.controles ?? [])].map((k, i) => ({ ...k, numero: i + 1 }));
@@ -88,6 +98,7 @@ export async function obtenerBase(): Promise<Base> {
       total: excel.sivigila.size,
       sinSeguimiento: [...excel.sivigila.keys()].filter(d => !docs.has(d)).length,
     },
+    eliminados,
   };
 }
 
@@ -100,7 +111,7 @@ export async function obtenerCaso(id: string): Promise<{ caso: Caso; fechaCorte:
 /** Guarda un control diligenciado por el prestador (siguiente bloque libre de AY..KF). */
 export async function registrarControl(id: string, input: NuevoControlInput, usuario: string): Promise<number> {
   const base = (await leerExcel()).casos.find(c => c.id === id);
-  if (!base) throw new Error('Caso no encontrado');
+  if (!base || (await leerAjustes())[id]?.eliminado) throw new Error('Caso no encontrado');
   const ahora = new Date().toISOString();
   let numero = 0;
 

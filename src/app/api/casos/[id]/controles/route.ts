@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { leerExcel } from '@/lib/dnt/excel-source';
+import { casoVigente } from '@/lib/dnt/ajustes';
 import { registrarAtencionPrimaria, registrarControl } from '@/lib/dnt/repositorio';
 import { ESTADOS, type Estado, type NuevoControlInput } from '@/lib/dnt/types';
 import { hoyColombia } from '@/lib/fecha';
@@ -43,7 +43,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const id = decodeURIComponent((await params).id);
-  const caso = (await leerExcel()).casos.find(c => c.id === id);
+  const caso = await casoVigente(id);
   if (!caso) return NextResponse.json({ error: 'Caso no encontrado' }, { status: 404 });
   if (sesion.rol === 'prestador' && caso.ipsSeguimiento !== sesion.ips) {
     return NextResponse.json({ error: 'El caso no pertenece a tu IPS' }, { status: 403 });

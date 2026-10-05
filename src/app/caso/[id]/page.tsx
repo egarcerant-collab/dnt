@@ -2,6 +2,8 @@ import { faltaPreregistro } from '@/lib/prestadores';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Encabezado } from '@/components/encabezado';
+import { GestionCaso } from '@/components/gestion-caso';
+import { leerAjustes } from '@/lib/dnt/ajustes';
 import { FormAtencionPrimaria, FormControl } from '@/components/form-control';
 import { HistoriaClinica } from '@/components/historia-clinica';
 import { FormMensaje, HiloMensajes } from '@/components/mensajes';
@@ -12,7 +14,7 @@ import { listarHistorias } from '@/lib/dnt/historias';
 import { listarMensajes, marcarLeidos } from '@/lib/dnt/mensajes';
 import { obtenerBase } from '@/lib/dnt/repositorio';
 import { ALERTAS } from '@/lib/dnt/types';
-import { getSesion, rutaInicio } from '@/lib/sesion';
+import { esEpsi, getSesion, rutaInicio } from '@/lib/sesion';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,10 +37,19 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
 
   // Al abrir el caso se marcan como leídos los mensajes dirigidos a este rol
   await marcarLeidos(sesion.rol, { casoId: caso.id });
-  const [mensajes, historias] = await Promise.all([
+  const [mensajes, historias, ajustes] = await Promise.all([
     listarMensajes().then(l => l.filter(m => m.casoId === caso.id)),
     listarHistorias(caso.id),
+    esEpsi(sesion.rol) ? leerAjustes() : Promise.resolve({} as Awaited<ReturnType<typeof leerAjustes>>),
   ]);
+  // Opciones para mover el caso: departamentos, municipios e IPS presentes en la base
+  const ubicaciones: Record<string, string[]> = {};
+  base.casos.forEach(c => {
+    const l = (ubicaciones[c.departamento] ??= []);
+    if (c.municipio && !l.includes(c.municipio)) l.push(c.municipio);
+  });
+  Object.values(ubicaciones).forEach(l => l.sort());
+  const listaIps = [...new Set(base.casos.map(c => c.ipsSeguimiento).filter(Boolean))].sort();
   const serie = [
     { fecha: caso.fechaNotificacion, z: caso.zIngreso, etiqueta: 'Ingreso' },
     ...caso.controles.map(k => ({ fecha: k.fecha, z: k.zPesoTalla, etiqueta: `C${k.numero}` })),
@@ -179,6 +190,16 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
             <HistoriaClinica casoId={caso.id} historias={historias} controles={caso.controles.map(k => ({ numero: k.numero, fecha: k.fecha }))} puedeSubir={puedeRegistrar} puedeEliminar={sesion.rol === 'admin'} />
           </section>
         </div>
+        {esEpsi(sesion.rol) && (
+          <GestionCaso
+            id={caso.id}
+            actual={{ departamento: caso.departamento, municipio: caso.municipio, ips: caso.ipsSeguimiento }}
+            ubicaciones={ubicaciones}
+            ips={listaIps}
+            esAdmin={sesion.rol === 'admin'}
+            historial={ajustes[caso.id]?.historial ?? []}
+          />
+        )}
       </main>
     </>
   );

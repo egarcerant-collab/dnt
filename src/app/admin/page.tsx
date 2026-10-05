@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { TablaPrestadores } from '@/components/admin-prestadores';
 import { CargarBase } from '@/components/cargar-base';
 import { AdminRespaldos } from '@/components/admin-respaldos';
+import { RestaurarCaso } from '@/components/gestion-caso';
 import { DESTINO_RESPALDO } from '@/lib/respaldo';
 import { SolicitudesRegistro } from '@/components/admin-solicitudes';
 import { FormNuevoUsuario, AccionesUsuario } from '@/components/admin-usuarios';
@@ -44,6 +45,27 @@ export default async function Administracion() {
         <CargarBase origen={base.origenBase} casos={base.casos.length} almacenamiento={base.almacenamiento} />
         <AdminRespaldos destino={DESTINO_RESPALDO} cifrado={!!process.env.BACKUP_PASSWORD} />
         <TablaPrestadores prestadores={filasPrestadores} correo={{ configurado: correoConfigurado(), remitente: REMITENTE }} />
+        {base.eliminados.length > 0 && (
+          <section className="tarjeta overflow-x-auto">
+            <h2 className="border-b border-slate-100 p-4 font-semibold">Registros eliminados ({base.eliminados.length})</h2>
+            <table className="w-full text-sm">
+              <thead className="bg-marca-50 text-left text-xs uppercase text-marca-900">
+                <tr><th className="px-3 py-2">Niño</th><th className="px-3 py-2">IPS</th><th className="px-3 py-2">Motivo</th><th className="px-3 py-2">Eliminado por</th><th className="px-3 py-2">Restaurar</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {base.eliminados.map(e => (
+                  <tr key={e.id}>
+                    <td className="px-3 py-2"><b>{e.nombre}</b><br /><span className="text-xs text-slate-500">{e.documento}</span></td>
+                    <td className="px-3 py-2 text-xs">{e.ips}</td>
+                    <td className="px-3 py-2 text-xs">{e.motivo}</td>
+                    <td className="px-3 py-2 text-xs whitespace-nowrap">{e.por}<br />{new Date(e.fecha).toLocaleString('es-CO', { timeZone: 'America/Bogota' })}</td>
+                    <td className="px-3 py-2"><RestaurarCaso id={e.id} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
         <h2 className="mt-2 text-lg font-semibold text-marca-900">Usuarios EPSI</h2>
         <FormNuevoUsuario soySuperusuario={soySuperusuario} />
 

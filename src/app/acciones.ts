@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { leerExcel } from '@/lib/dnt/excel-source';
+import { casoVigente, eliminarCaso, moverCaso, restaurarCaso } from '@/lib/dnt/ajustes';
 import { guardarFirma, quitarFirma } from '@/lib/firmas';
 import { enviarMensaje, type TipoMensaje } from '@/lib/dnt/mensajes';
 import { avisarMensajeIps, enviarInformes } from '@/lib/dnt/informe-ips';
@@ -93,7 +93,7 @@ export async function accionEnviarMensaje(_prev: EstadoAccion, form: FormData): 
   let tipo = String(form.get('tipo') ?? 'notificacion') as TipoMensaje;
 
   if (casoId) {
-    const caso = (await leerExcel()).casos.find(c => c.id === casoId);
+    const caso = await casoVigente(casoId);
     if (!caso) return { ok: false, mensaje: 'Caso no encontrado' };
     ips = caso.ipsSeguimiento;
   }
@@ -280,4 +280,57 @@ export async function accionQuitarFirma() {
   await quitarFirma(s.id);
   revalidatePath('/mi-firma');
   revalidatePath('/informes');
+}
+
+// ── Correcciones de la base: mover o eliminar un registro (confirmando la contraseña) ──
+
+async function confirmarClave(form: FormData) {
+  const s = await getSesion();
+  if (!s || !esEpsi(s.rol)) throw new Error('No autorizado');
+  const r = await autenticar(s.usuario, String(form.get('confirmacion') ?? ''));
+  if (!r.ok) throw new Error(r.motivo === 'bloqueado' ? 'Demasiados intentos fallidos. Espera unos minutos.' : 'Contraseña incorrecta');
+  return s;
+}
+
+function refrescarVistas(id: string) {
+  ['/epsi', '/seguimiento', '/prestador', '/admin', '/informes'].forEach(r => revalidatePath(r));
+  revalidatePath(`/caso/${encodeURIComponent(id)}`);
+}
+
+export async function accionMoverCaso(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
+  const id = String(form.get('id') ?? '');
+  try {
+    const s = await confirmarClave(form);
+    await moverCaso(id, { departamento: String(form.get('departamento') ?? ''), municipio: String(form.get('municipio') ?? ''), ips: String(form.get('ips') ?? '') }, s.nombre);
+  } catch (e) {
+    return { ok: false, mensaje: (e as Error).message };
+  }
+  refrescarVistas(id);
+  return { ok: true, mensaje: 'Registro movido. El cambio quedó en el historial del caso.' };
+}
+
+export async function accionEliminarCaso(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
+  const id = String(form.get('id') ?? '');
+  try {
+    const s = await confirmarClave(form);
+    if (s.rol !== 'admin') throw new Error('Solo el administrador puede eliminar registros');
+    await eliminarCaso(id, String(form.get('motivo') ?? ''), s.nombre);
+  } catch (e) {
+    return { ok: false, mensaje: (e as Error).message };
+  }
+  refrescarVistas(id);
+  redirect('/seguimiento');
+}
+
+export async function accionRestaurarCaso(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
+  const id = String(form.get('id') ?? '');
+  try {
+    const s = await confirmarClave(form);
+    if (s.rol !== 'admin') throw new Error('Solo el administrador puede restaurar registros');
+    await restaurarCaso(id, s.nombre);
+  } catch (e) {
+    return { ok: false, mensaje: (e as Error).message };
+  }
+  refrescarVistas(id);
+  return { ok: true, mensaje: 'Registro restaurado.' };
 }
