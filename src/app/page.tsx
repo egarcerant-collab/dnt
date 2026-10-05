@@ -25,11 +25,6 @@ export default async function Ingreso({ searchParams }: { searchParams: Promise<
 
       <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-10">
         <FormIngreso prestadores={prestadores} error={error} pestanaInicial={modo === 'prestador' ? 'prestador' : 'epsi'} />
-        <p className="max-w-md text-center text-xs text-slate-500">
-          Dirección Nacional de Gestión del Riesgo en Salud · Dusakawi EPSI
-          <br />
-          Información con reserva legal (Ley 1581/2012 · Res. 1995/1999).
-        </p>
       </main>
     </div>
   );
