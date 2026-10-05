@@ -1,5 +1,6 @@
 import 'server-only';
 import fs from 'fs/promises';
+import { readFileSync } from 'fs';
 import path from 'path';
 import { Readable } from 'stream';
 
@@ -266,12 +267,27 @@ export const CARPETAS_DRIVE = {
   datos: '03_DATOS_APP',
 } as const;
 
+/**
+ * Credenciales de la cuenta de servicio: contenido en GOOGLE_SERVICE_ACCOUNT_JSON (Vercel)
+ * o ruta al archivo .json en GOOGLE_SERVICE_ACCOUNT_FILE (uso local, sin copiar la clave).
+ */
+function credencialesCrudas(): string | undefined {
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  const archivo = process.env.GOOGLE_SERVICE_ACCOUNT_FILE;
+  if (!archivo) return undefined;
+  try {
+    return readFileSync(archivo, 'utf-8');
+  } catch {
+    throw new Error(`No se pudo leer GOOGLE_SERVICE_ACCOUNT_FILE (${archivo})`);
+  }
+}
+
 let instancia: JsonStore | null = null;
 
 export function getStore(): JsonStore {
   if (instancia) return instancia;
   const folderId = process.env.GDRIVE_FOLDER_ID;
-  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  const raw = credencialesCrudas();
   if (folderId && raw) {
     let credenciales: { client_email?: string; private_key?: string };
     try {
@@ -296,7 +312,7 @@ export async function diagnosticarStore(): Promise<Record<string, unknown>> {
     GOOGLE_SERVICE_ACCOUNT_JSON: process.env.GOOGLE_SERVICE_ACCOUNT_JSON ? 'configurado' : 'FALTA',
   };
   try {
-    const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+    const raw = credencialesCrudas();
     if (raw) r.cuentaServicio = JSON.parse(raw).client_email ?? 'sin client_email';
   } catch {
     r.cuentaServicio = 'JSON inválido';
