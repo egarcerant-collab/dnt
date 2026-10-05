@@ -7,7 +7,12 @@ import { getSesion } from '@/lib/sesion';
 /** Estado de configuración para el administrador: Drive, cuenta de servicio y base. */
 export async function GET() {
   const sesion = await getSesion();
-  if (sesion?.rol !== 'admin') return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  if (!sesion) {
+    return NextResponse.json({ error: 'No autorizado: este navegador no tiene sesión iniciada en Nutria. Entra primero a la página principal con usuario y contraseña de administrador.' }, { status: 401 });
+  }
+  if (sesion.rol !== 'admin') {
+    return NextResponse.json({ error: `No autorizado: la sesión actual es de ${sesion.nombre} (rol ${sesion.rol}). Cierra sesión y entra como administrador (egarcerant).` }, { status: 403 });
+  }
 
   const r: Record<string, unknown> = { ...(await diagnosticarStore()) };
   try {
