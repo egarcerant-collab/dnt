@@ -148,8 +148,11 @@ export async function accionEnviarInforme(_prev: EstadoAccion, form: FormData): 
   const ips = String(form.get('ips') ?? '') || undefined;
   const r = await enviarInformes(ips);
   const ok = r.filter(x => x.ok).length;
-  if (ips) return r[0]?.ok ? { ok: true, mensaje: 'Informe enviado por correo.' } : { ok: false, mensaje: r[0]?.motivo ?? 'No se pudo enviar' };
+  if (ips) return r[0]?.ok ? { ok: true, mensaje: 'Informe enviado por correo.' } : { ok: false, mensaje: r[0]?.motivo ?? 'Prestador no encontrado' };
+  if (!r.length) return { ok: false, mensaje: 'No hay IPS activas para notificar.' };
   const fallas = r.filter(x => !x.ok);
+  const sinCorreo = fallas.filter(x => /pre-registro/.test(x.motivo ?? '')).length;
+  if (ok === 0 && sinCorreo === fallas.length) return { ok: false, mensaje: `Ninguna IPS activa tiene correo registrado (${sinCorreo} sin pre-registro).` };
   return { ok: ok > 0, mensaje: `Informes enviados: ${ok}. Sin enviar: ${fallas.length}${fallas.length ? ` (${fallas[0].motivo})` : ''}.` };
 }
 

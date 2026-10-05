@@ -61,9 +61,13 @@ export function textoWhatsApp(s: ResumenIps): string {
 export async function enviarInformes(soloIps?: string) {
   const [resumenes, prestadores] = await Promise.all([resumenesPorIps(), listarPrestadores()]);
   const resultados: { ips: string; ok: boolean; motivo?: string }[] = [];
-  for (const p of prestadores.filter(x => x.activo && (!soloIps || x.ips === soloIps))) {
+  // Envío a una IPS concreta: se permite aunque esté desactivada. Envío masivo: solo IPS activas.
+  for (const p of prestadores.filter(x => (soloIps ? x.ips === soloIps : x.activo))) {
     const s = resumenes.get(p.ips);
-    if (!s) continue;
+    if (!s) {
+      resultados.push({ ips: p.ips, ok: false, motivo: 'La IPS no tiene niños en la base actual' });
+      continue;
+    }
     if (!p.contacto?.correos.length) {
       resultados.push({ ips: p.ips, ok: false, motivo: 'Sin correo registrado (falta el pre-registro)' });
       continue;
