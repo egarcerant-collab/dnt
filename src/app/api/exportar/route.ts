@@ -59,7 +59,7 @@ export async function GET(req: Request) {
 
   const filtrosTexto = CLAVES.filter(k => f[k]).map(k => `${k}: ${k === 'alerta' ? ALERTAS[f[k] as keyof typeof ALERTAS]?.titulo ?? f[k] : f[k]}`);
   const resumen = [
-    ['Monitoreo Desnutrición · Dusakawi EPSI'],
+    ['Nutria · Monitoreo de Desnutrición · Dusakawi EPSI'],
     ['Generado', new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })],
     ['Usuario', `${sesion.nombre} (${sesion.usuario})`],
     ['Filtros', filtrosTexto.join(' · ') || 'Ninguno (todos los casos)'],

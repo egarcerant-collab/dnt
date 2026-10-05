@@ -17,9 +17,9 @@ export async function Encabezado({ sesion, fechaCorte, almacenamiento }: { sesio
     <header className="bg-marca-700 text-white shadow">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
         <Link href={rutaInicio(sesion.rol)} className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xs font-bold text-marca-700">DSK</span>
+          <img src="/nutria.svg" alt="" className="h-10 w-10 rounded-full bg-white p-0.5" />
           <span className="flex flex-col">
-            <span className="text-lg font-bold">Monitoreo Desnutrición</span>
+            <span className="text-lg font-bold">Nutria <span className="text-sm font-normal text-white/80">· Monitoreo de Desnutrición</span></span>
             <span className="text-xs text-white/80">
               {ETIQUETA_ROL[sesion.rol]}
               {sesion.ips ? ` · ${sesion.ips}` : ''} · Corte {formatoFecha(fechaCorte)} · Datos: {almacenamiento === 'drive' ? 'Google Drive' : 'local'}

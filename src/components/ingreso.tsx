@@ -79,13 +79,8 @@ export function FormIngreso({ prestadores, error, pestanaInicial }: { prestadore
   return (
     <div className="w-full max-w-md overflow-hidden rounded-xl border-2 border-marca-600 bg-white shadow-lg">
       <div className="flex flex-col items-center gap-1 bg-marca-700 px-6 py-6 text-white">
-        <span className="mb-1 flex h-12 w-12 items-center justify-center rounded-full border border-white/40 bg-white/10">
-          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" />
-            <path d="M9 12l2 2 4-4" />
-          </svg>
-        </span>
-        <h1 className="text-lg font-bold tracking-widest">INGRESO AL SISTEMA</h1>
+        <img src="/nutria.svg" alt="Nutria" className="mb-1 h-24 w-24 rounded-full border-4 border-white/70 shadow-lg" />
+        <h1 className="text-2xl font-bold tracking-wide">Nutria</h1>
         <p className="text-sm text-white/85">Monitoreo de Desnutrición Aguda en menores de 5 años</p>
       </div>
 

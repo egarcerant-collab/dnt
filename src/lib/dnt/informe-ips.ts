@@ -45,7 +45,7 @@ export async function resumenesPorIps(): Promise<Map<string, ResumenIps>> {
 
 export function textoWhatsApp(s: ResumenIps): string {
   return [
-    `Dusakawi EPSI · Monitoreo DNT`,
+    `Nutria · Dusakawi EPSI (Monitoreo DNT)`,
     `${s.ips}:`,
     `• Niños activos: ${s.activos}`,
     `• Sin control hace más de 4 semanas: ${s.sinControl4}`,

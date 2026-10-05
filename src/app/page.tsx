@@ -15,8 +15,11 @@ export default async function Ingreso({ searchParams }: { searchParams: Promise<
     <div className="flex min-h-screen flex-col">
       <header className="bg-marca-600 text-white shadow">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-sm font-bold text-marca-700">DSK</span>
-          <span className="text-sm font-semibold uppercase tracking-wide sm:text-base">Dusakawi EPSI · Monitoreo Desnutrición</span>
+          <img src="/nutria.svg" alt="" className="h-11 w-11 rounded-full bg-white p-0.5 shadow" />
+          <span className="flex flex-col leading-tight">
+            <span className="text-xl font-bold tracking-wide">Nutria</span>
+            <span className="text-xs text-white/85">Monitoreo de Desnutrición · Dusakawi EPSI</span>
+          </span>
         </div>
       </header>
 

@@ -27,7 +27,7 @@ export async function enviarCorreo(e: Envio): Promise<{ ok: boolean; motivo?: st
       secure: true,
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
-    await transporte.sendMail({ from: `"Monitoreo DNT · Dusakawi EPSI" <${REMITENTE}>`, to: e.para.join(', '), subject: e.asunto, text: e.texto, html: e.html });
+    await transporte.sendMail({ from: `"Nutria · Dusakawi EPSI" <${REMITENTE}>`, to: e.para.join(', '), subject: e.asunto, text: e.texto, html: e.html });
     r = { ok: true };
   } catch (err) {
     r = { ok: false, motivo: (err as Error).message };
@@ -50,7 +50,7 @@ export function plantilla(titulo: string, parrafos: string[], filas?: [string, s
         .join('')}</table>`
     : '';
   const html = `<div style="font-family:Arial,sans-serif;color:#1e293b;max-width:560px">
-  <div style="background:#174a99;color:#fff;padding:14px 18px;border-radius:8px 8px 0 0"><b>Monitoreo Desnutrición · Dusakawi EPSI</b></div>
+  <div style="background:#174a99;color:#fff;padding:14px 18px;border-radius:8px 8px 0 0"><img src="${URL_APP}/nutria.png" alt="" width="32" height="32" style="vertical-align:middle;border-radius:50%;background:#fff;margin-right:8px"><b>Nutria</b> · Monitoreo de Desnutrición · Dusakawi EPSI</div>
   <div style="border:1px solid #dbeafe;border-top:0;padding:18px;border-radius:0 0 8px 8px">
     <h2 style="margin:0 0 10px;font-size:18px;color:#0c2a57">${escapar(titulo)}</h2>
     ${parrafos.map(p => `<p style="margin:8px 0">${escapar(p)}</p>`).join('')}

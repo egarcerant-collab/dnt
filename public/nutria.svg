@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Nutria">
+  <!-- Logo original de Nutria: nutria enroscada en círculo -->
+  <circle cx="100" cy="100" r="100" fill="#0EC5F5"/>
+  <g stroke="#4A2614" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- cola que cierra el círculo -->
+    <path d="M118 44 C150 36 176 66 172 104 C168 140 140 168 104 170" fill="none" stroke-width="30" stroke="#4A2614"/>
+    <path d="M118 44 C150 36 176 66 172 104 C168 140 140 168 104 170" fill="none" stroke-width="20" stroke="#C98A55"/>
+    <path d="M120 50 C146 46 164 70 162 100" fill="none" stroke-width="7" stroke="#E7B783"/>
+    <!-- cuerpo -->
+    <path d="M60 70 C40 92 38 132 58 156 C76 176 112 178 132 160 C120 150 110 140 112 120 C114 100 100 76 80 66 Z" fill="#C98A55"/>
+    <!-- barriga -->
+    <path d="M62 98 C56 124 64 152 88 164 C104 170 120 166 128 160 C116 150 108 138 108 122 C106 110 98 104 86 102 Z" fill="#F2C99A" stroke="none"/>
+    <!-- orejas -->
+    <circle cx="58" cy="62" r="11" fill="#C98A55"/>
+    <circle cx="58" cy="62" r="5" fill="#F4A7A7" stroke="none"/>
+    <circle cx="110" cy="62" r="11" fill="#C98A55"/>
+    <circle cx="110" cy="62" r="5" fill="#F4A7A7" stroke="none"/>
+    <!-- cabeza -->
+    <ellipse cx="84" cy="84" rx="34" ry="28" fill="#C98A55"/>
+    <ellipse cx="84" cy="94" rx="18" ry="12" fill="#F2C99A" stroke="none"/>
+    <!-- patas -->
+    <ellipse cx="66" cy="132" rx="9" ry="14" fill="#C98A55" transform="rotate(-20 66 132)"/>
+    <ellipse cx="102" cy="134" rx="9" ry="14" fill="#C98A55" transform="rotate(25 102 134)"/>
+    <ellipse cx="92" cy="166" rx="16" ry="9" fill="#C98A55"/>
+  </g>
+  <!-- cara -->
+  <circle cx="72" cy="80" r="4.5" fill="#2B160C"/>
+  <circle cx="96" cy="80" r="4.5" fill="#2B160C"/>
+  <circle cx="73.5" cy="78.5" r="1.4" fill="#fff"/>
+  <circle cx="97.5" cy="78.5" r="1.4" fill="#fff"/>
+  <path d="M80 89 h8 l-4 4 z" fill="#2B160C" stroke="#2B160C" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M77 96 q7 7 14 0" fill="#E57373" stroke="#2B160C" stroke-width="2.5" stroke-linecap="round"/>
+</svg>
