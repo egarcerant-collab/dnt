@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { leerExcel } from '@/lib/dnt/excel-source';
+import { guardarFirma, quitarFirma } from '@/lib/firmas';
 import { enviarMensaje, type TipoMensaje } from '@/lib/dnt/mensajes';
 import { avisarMensajeIps, enviarInformes } from '@/lib/dnt/informe-ips';
 import { actualizarPrestador, autenticarPrestador, establecerClavePrestador, guardarContactoPrestador } from '@/lib/prestadores';
@@ -254,4 +255,29 @@ export async function accionResolverSolicitud(_prev: EstadoAccion, form: FormDat
   } catch (e) {
     return { ok: false, mensaje: (e as Error).message };
   }
+}
+
+// ── Firma para los informes PDF (funcionarios EPSI) ────────────────────
+
+export async function accionGuardarFirma(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
+  const s = await getSesion();
+  if (!s || !esEpsi(s.rol)) return { ok: false, mensaje: 'No autorizado' };
+  try {
+    const archivo = form.get('imagen');
+    const imagen = archivo instanceof File && archivo.size > 0 ? Buffer.from(await archivo.arrayBuffer()) : undefined;
+    await guardarFirma(s.id, { imagen, cargo: String(form.get('cargo') ?? ''), compartida: form.get('compartida') === 'on' });
+  } catch (e) {
+    return { ok: false, mensaje: (e as Error).message };
+  }
+  revalidatePath('/mi-firma');
+  revalidatePath('/informes');
+  return { ok: true, mensaje: 'Firma guardada. Ya puedes usarla en los informes PDF.' };
+}
+
+export async function accionQuitarFirma() {
+  const s = await getSesion();
+  if (!s || !esEpsi(s.rol)) return;
+  await quitarFirma(s.id);
+  revalidatePath('/mi-firma');
+  revalidatePath('/informes');
 }

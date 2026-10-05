@@ -17,6 +17,16 @@ export interface Usuario {
   pendiente?: boolean;
   correo?: string;
   cargo?: string;
+  /** Firma digitalizada para los informes PDF (imagen en el almacenamiento). */
+  firma?: FirmaUsuario;
+}
+
+export interface FirmaUsuario {
+  archivo: string;
+  cargo: string;
+  /** Si otros funcionarios pueden incluirla en los informes que generan. */
+  compartida: boolean;
+  actualizada: string;
 }
 
 export type UsuarioPublico = Omit<Usuario, 'hash'>;

@@ -176,6 +176,7 @@ export class DriveStore implements JsonStore {
   /** Subcarpeta de DESNUTRICION según el tipo de archivo. */
   private static carpetaPara(nombre: string): string {
     if (esRespaldo(nombre)) return CARPETAS_DRIVE.respaldos;
+    if (nombre.startsWith('firma-')) return CARPETAS_DRIVE.datos;
     if (nombre.endsWith('.xlsx')) return CARPETAS_DRIVE.base;
     if (/\.(pdf|jpg|png)$/.test(nombre)) return CARPETAS_DRIVE.historias;
     return CARPETAS_DRIVE.datos;
