@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { TablaPrestadores } from '@/components/admin-prestadores';
 import { CargarBase } from '@/components/cargar-base';
+import { AdminRespaldos } from '@/components/admin-respaldos';
+import { DESTINO_RESPALDO } from '@/lib/respaldo';
 import { SolicitudesRegistro } from '@/components/admin-solicitudes';
 import { FormNuevoUsuario, AccionesUsuario } from '@/components/admin-usuarios';
 import { aPublico, listarPrestadores } from '@/lib/prestadores';
@@ -40,6 +42,7 @@ export default async function Administracion() {
         <h1 className="text-2xl font-bold text-marca-900">Administración</h1>
         <SolicitudesRegistro solicitudes={solicitudes} soySuperusuario={soySuperusuario} />
         <CargarBase origen={base.origenBase} casos={base.casos.length} almacenamiento={base.almacenamiento} />
+        <AdminRespaldos destino={DESTINO_RESPALDO} cifrado={!!process.env.BACKUP_PASSWORD} />
         <TablaPrestadores prestadores={filasPrestadores} correo={{ configurado: correoConfigurado(), remitente: REMITENTE }} />
         <h2 className="mt-2 text-lg font-semibold text-marca-900">Usuarios EPSI</h2>
         <FormNuevoUsuario soySuperusuario={soySuperusuario} />

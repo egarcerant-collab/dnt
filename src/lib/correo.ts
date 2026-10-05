@@ -11,7 +11,7 @@ export const URL_APP = process.env.APP_URL || 'https://dnt-nine.vercel.app';
 
 export const correoConfigurado = () => !!(process.env.SMTP_USER && process.env.SMTP_PASS);
 
-interface Envio { para: string[]; asunto: string; texto: string; html: string }
+interface Envio { para: string[]; asunto: string; texto: string; html: string; adjuntos?: { nombre: string; contenido: Buffer }[] }
 
 const ARCHIVO_LOG = 'correos-enviados.json';
 
@@ -27,7 +27,7 @@ export async function enviarCorreo(e: Envio): Promise<{ ok: boolean; motivo?: st
       secure: true,
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
-    await transporte.sendMail({ from: `"Nutria · Dusakawi EPSI" <${REMITENTE}>`, to: e.para.join(', '), subject: e.asunto, text: e.texto, html: e.html });
+    await transporte.sendMail({ from: `"Nutria · Dusakawi EPSI" <${REMITENTE}>`, to: e.para.join(', '), subject: e.asunto, text: e.texto, html: e.html, attachments: e.adjuntos?.map(a => ({ filename: a.nombre, content: a.contenido })) });
     r = { ok: true };
   } catch (err) {
     r = { ok: false, motivo: (err as Error).message };

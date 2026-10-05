@@ -18,9 +18,14 @@ export interface JsonStore {
   /** Archivos binarios (historias clínicas). `nombre` lo genera el sistema, nunca el usuario. */
   guardarArchivo(nombre: string, contenido: Buffer, mime: string): Promise<void>;
   leerArchivo(nombre: string): Promise<Buffer | null>;
+  /** Respaldos diarios guardados (04_RESPALDOS en Drive). */
+  listarRespaldos(): Promise<ArchivoRespaldo[]>;
+  eliminarRespaldo(nombre: string): Promise<void>;
 }
 
-const NOMBRE_SEGURO = /^[a-z0-9-]+\.(pdf|jpg|png|xlsx)$/;
+const NOMBRE_SEGURO = /^([a-z0-9-]+\.(pdf|jpg|png|xlsx)|respaldo-\d{4}-\d{2}-\d{2}\.json\.gz)$/;
+export const esRespaldo = (n: string) => /^respaldo-\d{4}-\d{2}-\d{2}\.json\.gz$/.test(n);
+export interface ArchivoRespaldo { nombre: string; tamano: number; fecha: string }
 
 class LocalStore implements JsonStore {
   readonly tipo = 'local' as const;
@@ -62,6 +67,23 @@ class LocalStore implements JsonStore {
       if (e.code === 'ENOENT') return null;
       throw e;
     }
+  }
+
+  async listarRespaldos(): Promise<ArchivoRespaldo[]> {
+    const dir = path.join(this.dir, 'archivos');
+    const nombres = await fs.readdir(dir).catch(() => [] as string[]);
+    const r = await Promise.all(
+      nombres.filter(esRespaldo).map(async nombre => {
+        const st = await fs.stat(path.join(dir, nombre));
+        return { nombre, tamano: st.size, fecha: st.mtime.toISOString() };
+      }),
+    );
+    return r.sort((a, b) => b.nombre.localeCompare(a.nombre));
+  }
+
+  async eliminarRespaldo(nombre: string): Promise<void> {
+    if (!esRespaldo(nombre)) throw new Error('Nombre de respaldo inválido');
+    await fs.rm(this.rutaArchivo(nombre), { force: true });
   }
 }
 
@@ -153,6 +175,7 @@ export class DriveStore implements JsonStore {
 
   /** Subcarpeta de DESNUTRICION según el tipo de archivo. */
   private static carpetaPara(nombre: string): string {
+    if (esRespaldo(nombre)) return CARPETAS_DRIVE.respaldos;
     if (nombre.endsWith('.xlsx')) return CARPETAS_DRIVE.base;
     if (/\.(pdf|jpg|png)$/.test(nombre)) return CARPETAS_DRIVE.historias;
     return CARPETAS_DRIVE.datos;
@@ -286,6 +309,34 @@ export class DriveStore implements JsonStore {
     const { id } = await this.buscarId(nombre);
     return id ? this.descargar(nombre, id) : null;
   }
+
+  async listarRespaldos(): Promise<ArchivoRespaldo[]> {
+    const carpeta = await this.carpetaId(CARPETAS_DRIVE.respaldos);
+    const drive = await this.drive();
+    const res = await drive.files.list({
+      q: `'${carpeta}' in parents and trashed=false and name contains 'respaldo-'`,
+      fields: 'files(id,name,size,createdTime)',
+      orderBy: 'name desc',
+      pageSize: 200,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    });
+    return (res.data.files ?? [])
+      .filter(f => f.name && esRespaldo(f.name))
+      .map(f => {
+        this.ids.set(f.name!, f.id!);
+        return { nombre: f.name!, tamano: Number(f.size ?? 0), fecha: f.createdTime ?? '' };
+      });
+  }
+
+  async eliminarRespaldo(nombre: string): Promise<void> {
+    if (!esRespaldo(nombre)) throw new Error('Nombre de respaldo inválido');
+    const { id } = await this.buscarId(nombre);
+    if (!id) return;
+    const drive = await this.drive();
+    await drive.files.delete({ fileId: id, supportsAllDrives: true });
+    this.ids.delete(nombre);
+  }
 }
 
 /** Estructura de carpetas dentro de la carpeta raíz de Drive (GDRIVE_FOLDER_ID). */
@@ -293,6 +344,7 @@ export const CARPETAS_DRIVE = {
   base: '01_BASE_SEGUIMIENTO',
   historias: '02_HISTORIAS_CLINICAS',
   datos: '03_DATOS_APP',
+  respaldos: '04_RESPALDOS',
 } as const;
 
 /**
