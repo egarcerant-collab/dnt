@@ -216,3 +216,26 @@ export async function actualizarUsuario(
     }
   });
 }
+
+/** Edición de los datos de un usuario (solo el superusuario). El usuario del superusuario no se puede cambiar. */
+export async function editarDatosUsuario(id: string, datos: { usuario: string; nombre: string; correo: string; cargo: string }, actor: string) {
+  if (!esSuperusuario(actor)) throw new Error('Solo el superusuario puede editar los datos de los usuarios');
+  const usuario = normalizarUsuario(datos.usuario);
+  const nombre = datos.nombre.trim().replace(/\s+/g, ' ');
+  const correo = datos.correo.trim().toLowerCase();
+  const cargo = datos.cargo.trim();
+  if (!/^[a-z0-9._-]{3,40}$/.test(usuario)) throw new Error('Usuario inválido (3–40 caracteres: letras, números, punto, guion)');
+  if (nombre.length < 3 || nombre.length > 100) throw new Error('El nombre debe tener entre 3 y 100 caracteres');
+  if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) throw new Error('Correo inválido');
+  if (cargo.length > 80) throw new Error('El cargo no puede superar 80 caracteres');
+  await actualizarJson<Usuario[]>(ARCHIVO, () => [], usuarios => {
+    const u = usuarios.find(x => x.id === id);
+    if (!u) throw new Error('Usuario no encontrado');
+    if (esSuperusuario(u.usuario) && usuario !== u.usuario) throw new Error('El usuario del superusuario no se puede cambiar');
+    if (usuarios.some(x => x.id !== id && x.usuario === usuario)) throw new Error('Ese usuario ya existe');
+    u.usuario = usuario;
+    u.nombre = nombre;
+    u.correo = correo || undefined;
+    u.cargo = cargo || undefined;
+  });
+}

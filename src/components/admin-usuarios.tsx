@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { accionActualizarUsuario, accionCrearUsuario, type EstadoAccion } from '@/app/acciones';
+import { accionActualizarUsuario, accionCrearUsuario, accionEditarUsuario, type EstadoAccion } from '@/app/acciones';
 
 function Mensaje({ estado }: { estado: EstadoAccion }) {
   if (!estado) return null;
@@ -43,9 +43,13 @@ export interface PermisosFila {
   esYo: boolean;
 }
 
-export function AccionesUsuario({ id, activo, rol, permisos }: { id: string; activo: boolean; rol: 'admin' | 'epsi' | 'prestador'; permisos: PermisosFila }) {
+export interface DatosUsuario { usuario: string; nombre: string; correo: string; cargo: string }
+
+export function AccionesUsuario({ id, activo, rol, permisos, datos }: { id: string; activo: boolean; rol: 'admin' | 'epsi' | 'prestador'; permisos: PermisosFila; datos: DatosUsuario }) {
   const [estado, accion, pendiente] = useActionState(accionActualizarUsuario, null);
+  const [estadoEd, accionEd, editando] = useActionState(accionEditarUsuario, null);
   const [cambiarClave, setCambiarClave] = useState(false);
+  const [editar, setEditar] = useState(false);
   const { esSuper, soySuperusuario, esYo } = permisos;
 
   // Un administrador común solo gestiona funcionarios EPSI (y su propia contraseña)
@@ -58,6 +62,25 @@ export function AccionesUsuario({ id, activo, rol, permisos }: { id: string; act
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {soySuperusuario &&
+        (editar ? (
+          <form action={accionEd} className="flex w-full flex-wrap items-end gap-2 rounded-lg bg-marca-50/60 p-2">
+            <input type="hidden" name="id" value={id} />
+            <label className="flex flex-col text-xs">Usuario
+              <input name="usuario" defaultValue={datos.usuario} required readOnly={esSuper} className={`input w-36 py-1.5 ${esSuper ? 'bg-slate-100' : ''}`} title={esSuper ? 'El usuario del superusuario no se cambia' : undefined} /></label>
+            <label className="flex flex-col text-xs">Nombre completo
+              <input name="nombre" defaultValue={datos.nombre} required className="input w-56 py-1.5" /></label>
+            <label className="flex flex-col text-xs">Correo
+              <input name="correo" type="email" defaultValue={datos.correo} className="input w-56 py-1.5" /></label>
+            <label className="flex flex-col text-xs">Cargo
+              <input name="cargo" defaultValue={datos.cargo} maxLength={80} className="input w-48 py-1.5" /></label>
+            <button className="boton" disabled={editando}>{editando ? 'Guardando…' : 'Guardar'}</button>
+            <button type="button" className="boton-sec" onClick={() => setEditar(false)}>Cerrar</button>
+            <Mensaje estado={estadoEd} />
+          </form>
+        ) : (
+          <button className="boton-sec" onClick={() => setEditar(true)}>Editar</button>
+        ))}
       {puedeCambiarRol && (
         <form action={accion} className="flex items-center gap-1">
           <input type="hidden" name="id" value={id} />

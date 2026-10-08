@@ -9,7 +9,7 @@ import { enviarMensaje, type TipoMensaje } from '@/lib/dnt/mensajes';
 import { avisarMensajeIps, enviarInformes } from '@/lib/dnt/informe-ips';
 import { actualizarPrestador, autenticarPrestador, establecerClavePrestador, guardarContactoPrestador } from '@/lib/prestadores';
 import { COOKIE, DURACION_SEG, codificarSesion, esEpsi, getSesion, rutaInicio } from '@/lib/sesion';
-import { actualizarUsuario, autenticar, crearUsuario, esSuperusuario, registrarSolicitud, resolverSolicitud, type RolUsuario } from '@/lib/usuarios';
+import { actualizarUsuario, autenticar, crearUsuario, editarDatosUsuario, esSuperusuario, registrarSolicitud, resolverSolicitud, type RolUsuario } from '@/lib/usuarios';
 
 export type EstadoAccion = { ok: boolean; mensaje: string } | null;
 
@@ -201,6 +201,21 @@ export async function accionActualizarUsuario(_prev: EstadoAccion, form: FormDat
     );
     revalidatePath('/admin');
     return { ok: true, mensaje: password ? 'Contraseña actualizada.' : rol ? 'Rol actualizado.' : 'Usuario actualizado.' };
+  } catch (e) {
+    return { ok: false, mensaje: (e as Error).message };
+  }
+}
+
+export async function accionEditarUsuario(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
+  try {
+    const s = await exigirAdmin();
+    await editarDatosUsuario(
+      String(form.get('id')),
+      { usuario: String(form.get('usuario') ?? ''), nombre: String(form.get('nombre') ?? ''), correo: String(form.get('correo') ?? ''), cargo: String(form.get('cargo') ?? '') },
+      s.usuario,
+    );
+    revalidatePath('/admin');
+    return { ok: true, mensaje: 'Datos actualizados.' };
   } catch (e) {
     return { ok: false, mensaje: (e as Error).message };
   }

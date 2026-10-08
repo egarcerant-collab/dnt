@@ -99,7 +99,8 @@ export default async function Administracion() {
                     </span>
                   </td>
                   <td className="px-3 py-2"><AccionesUsuario id={u.id} activo={u.activo} rol={u.rol}
-                    permisos={{ esSuper: esSuperusuario(u.usuario), soySuperusuario, esYo: u.id === sesion.id }} /></td>
+                    permisos={{ esSuper: esSuperusuario(u.usuario), soySuperusuario, esYo: u.id === sesion.id }}
+                    datos={{ usuario: u.usuario, nombre: u.nombre, correo: u.correo ?? '', cargo: u.cargo ?? '' }} /></td>
                 </tr>
               ))}
             </tbody>
