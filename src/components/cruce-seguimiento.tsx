@@ -120,22 +120,77 @@ export function CruceSeguimiento() {
             ))}
           </section>
 
-          <section className="tarjeta overflow-x-auto p-4">
-            <h2 className="mb-2 font-semibold">Niños únicos por año de la consulta más reciente</h2>
-            <table className="text-sm">
-              <thead className="text-left text-xs uppercase text-slate-500">
-                <tr><th className="pr-6">Año</th><th className="pr-6">Únicos en el archivo</th><th className="pr-6">Ya en Nutria</th><th>Faltan en Nutria</th></tr>
-              </thead>
-              <tbody>
-                {r.unicosPorAnio.map(([a, n], i) => (
-                  <tr key={a} className="border-t border-slate-100">
-                    <td className="py-1 pr-6 font-medium">{a}</td><td className="pr-6">{n}</td><td className="pr-6">{n - r.faltanPorAnio[i][1]}</td>
-                    <td className="font-semibold text-red-600">{r.faltanPorAnio[i][1]}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="mt-2 text-xs text-slate-500">Nutria trabaja con la base de seguimiento vigente: para saber qué falta cargar, revise sobre todo el año en curso.</p>
+          <section className="tarjeta grid gap-6 overflow-x-auto p-4 lg:grid-cols-2">
+            <div>
+              <h2 className="mb-2 font-semibold">Niños únicos por año de la consulta más reciente</h2>
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs uppercase text-slate-500">
+                  <tr><th className="pr-4">Año</th><th className="pr-4">Únicos en el archivo</th><th className="pr-4">Ya en Nutria</th><th>Faltan en Nutria</th></tr>
+                </thead>
+                <tbody>
+                  {r.unicosPorAnio.map(([a, n], i) => (
+                    <tr key={a} onClick={() => setFiltroAnio(a)} title="Ver este año"
+                      className={`cursor-pointer border-t border-slate-100 hover:bg-marca-50 ${filtroAnio === a ? 'bg-marca-50 ring-1 ring-inset ring-marca-300' : ''}`}>
+                      <td className="py-1 pr-4 font-medium">{a}</td><td className="pr-4">{n}</td><td className="pr-4">{n - r.faltanPorAnio[i][1]}</td>
+                      <td className="font-semibold text-red-600">{r.faltanPorAnio[i][1]}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-2 text-xs text-slate-500">
+                Nutria trabaja con la base de seguimiento vigente: para saber qué falta cargar, revise sobre todo el año en curso. Haga clic en un año para ver su detalle.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="mb-2 font-semibold">
+                Por departamento de residencia {filtroAnio === 'Todos' ? '(todos los años)' : `· ${filtroAnio}`}
+              </h2>
+              {(() => {
+                // Columna AE (NomDeptoDistritoResidencia) del archivo
+                const delAnio = datos.ninos.filter(n => filtroAnio === 'Todos' || anio(n.fecha) === filtroAnio);
+                const filas = [...new Set(delAnio.map(n => n.departamento || 'Sin departamento'))]
+                  .map(d => {
+                    const l = delAnio.filter(n => (n.departamento || 'Sin departamento') === d);
+                    const faltan = l.filter(n => !r.enBase.has(n.clave)).length;
+                    return { d, unicos: l.length, enNutria: l.length - faltan, faltan };
+                  })
+                  .sort((a, b) => b.unicos - a.unicos);
+                const total = filas.reduce((s, f) => ({ unicos: s.unicos + f.unicos, enNutria: s.enNutria + f.enNutria, faltan: s.faltan + f.faltan }), { unicos: 0, enNutria: 0, faltan: 0 });
+                return (
+                  <table className="w-full text-sm">
+                    <thead className="text-left text-xs uppercase text-slate-500">
+                      <tr><th className="pr-4">Departamento</th><th className="pr-4">Únicos</th><th className="pr-4">Ya en Nutria</th><th className="pr-4">Faltan</th><th>% cobertura</th></tr>
+                    </thead>
+                    <tbody>
+                      {filas.map(f => (
+                        <tr key={f.d} onClick={() => setFiltroDepto(filtroDepto === f.d ? 'Todos' : f.d)} title="Filtrar el listado por este departamento"
+                          className={`cursor-pointer border-t border-slate-100 hover:bg-marca-50 ${filtroDepto === f.d ? 'bg-marca-50 ring-1 ring-inset ring-marca-300' : ''}`}>
+                          <td className="py-1 pr-4 font-medium">{f.d}</td>
+                          <td className="pr-4">{f.unicos}</td>
+                          <td className="pr-4">{f.enNutria}</td>
+                          <td className="pr-4 font-semibold text-red-600">{f.faltan}</td>
+                          <td>
+                            <div className="flex items-center gap-2">
+                              <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-200">
+                                <div className="h-full bg-marca-600" style={{ width: `${f.unicos ? (f.enNutria / f.unicos) * 100 : 0}%` }} />
+                              </div>
+                              <span className="text-xs">{f.unicos ? Math.round((f.enNutria / f.unicos) * 100) : 0}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="border-t-2 border-slate-300 font-semibold">
+                        <td className="py-1 pr-4">Total</td><td className="pr-4">{total.unicos}</td><td className="pr-4">{total.enNutria}</td>
+                        <td className="pr-4 text-red-600">{total.faltan}</td>
+                        <td className="text-xs">{total.unicos ? Math.round((total.enNutria / total.unicos) * 100) : 0}%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                );
+              })()}
+              <p className="mt-2 text-xs text-slate-500">Clasificación por la columna AE (departamento de residencia). Haga clic en un departamento para filtrar el listado de abajo.</p>
+            </div>
           </section>
 
           <section className="tarjeta flex flex-col gap-3 p-4">
