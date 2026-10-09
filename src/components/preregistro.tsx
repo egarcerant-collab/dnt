@@ -96,8 +96,31 @@ export function PanelPreregistro({ registros, cargues, ips }: { registros: Prere
     .sort((a, b) => a.departamento.localeCompare(b.departamento) || a.municipio.localeCompare(b.municipio) || a.nombre.localeCompare(b.nombre));
   const avance = registros.length ? Math.round(((conteo.verificado + conteo.descartado + conteo.incorporado) / registros.length) * 100) : 0;
 
+  const ultimo = cargues.at(-1);
+
   return (
     <div className="flex flex-col gap-5">
+      <section className="tarjeta flex flex-wrap items-center justify-between gap-3 border-l-4 border-marca-600 p-4">
+        <div className="text-sm">
+          {ultimo ? (
+            <p>
+              Último cargue <b className="font-mono">{ultimo.id}</b> · {fechaHora(ultimo.fecha)} · {ultimo.por} · {ultimo.archivo} ·{' '}
+              <b>{ultimo.nuevos}</b> nuevos, {ultimo.actualizados} actualizados
+            </p>
+          ) : (
+            <>
+              <p className="font-semibold text-marca-900">Aún no hay cargues.</p>
+              <ol className="mt-1 list-decimal pl-5 text-slate-600">
+                <li>En <b>Cruce de bases</b> suba la base externa (por ejemplo SeguimientoDNT).</li>
+                <li>Elija año / departamento / seguimiento y pulse <b>Registrar cargue</b>: los niños que faltan en Nutria llegan aquí con todas sus columnas.</li>
+                <li>Verifíquelos asignando la IPS y luego incorpórelos a Nutria.</li>
+              </ol>
+            </>
+          )}
+        </div>
+        <Link href="/cruce" className="boton">{ultimo ? 'Nuevo cargue en Cruce de bases' : 'Ir a Cruce de bases'}</Link>
+      </section>
+
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {(['todos', 'pendiente', 'verificado', 'descartado', 'incorporado'] as const).map(k => (
           <button key={k} onClick={() => setFiltro(k)} className={`tarjeta p-4 text-left ${filtro === k ? 'ring-2 ring-marca-500' : ''}`}>

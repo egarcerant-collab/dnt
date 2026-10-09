@@ -12,6 +12,19 @@ import { clave, leerArchivo, sinSeguimiento, type NinoArchivo } from '@/lib/dnt/
 
 interface CasoBase { id: string; tipo: string; documento: string; nombre: string; departamento: string; municipio: string; ips: string; notificacion: string | null }
 
+interface EstadoPreCruce {
+  registros: Record<string, { estado: 'pendiente' | 'verificado' | 'descartado' | 'incorporado'; ips: string; casoId: string }>;
+  cargues: number;
+  ultimoCargue: { id: string; fecha: string; por: string; nuevos: number } | null;
+}
+
+const COLOR_PRE = { pendiente: 'bg-amber-100 text-amber-800', verificado: 'bg-marca-100 text-marca-800', descartado: 'bg-slate-200 text-slate-600', incorporado: 'bg-green-100 text-green-800' };
+
+function EstadoPreregistro({ e, enNutria }: { e?: keyof typeof COLOR_PRE; enNutria: boolean }) {
+  if (e) return <Link href="/preregistro" className={`rounded-full px-2 py-0.5 text-xs font-semibold ${COLOR_PRE[e]}`}>{e[0].toUpperCase() + e.slice(1)}</Link>;
+  return <span className="text-xs text-slate-400">{enNutria ? '—' : 'No registrado'}</span>;
+}
+
 function descargarCsv(nombre: string, encabezado: string[], filas: (string | number)[][]) {
   const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
   const csv = '﻿' + [encabezado, ...filas].map(f => f.map(esc).join(';')).join('\r\n'); // BOM + ';' para Excel en español
@@ -36,6 +49,13 @@ export function CruceSeguimiento() {
   const [filtroSeg, setFiltroSeg] = useState<'Todos' | 'con' | 'sin'>('Todos');
   const [cargue, setCargue] = useState<{ ok: boolean; t: string } | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [pre, setPre] = useState<EstadoPreCruce>({ registros: {}, cargues: 0, ultimoCargue: null });
+  const [filtroPre, setFiltroPre] = useState<'Todos' | 'no' | 'pendiente' | 'verificado' | 'descartado' | 'incorporado'>('Todos');
+
+  async function cargarPre() {
+    const res = await fetch('/api/preregistro', { cache: 'no-store' });
+    if (res.ok) setPre(await res.json());
+  }
 
   /** Registra el cargue: los niños listados que faltan en Nutria pasan al pre-registro (no a la base). */
   async function registrarCargue(lista: NinoArchivo[], enBase: Map<string, unknown>) {
@@ -58,6 +78,7 @@ Quedan en Pre-registro para verificarlos; la base de Nutria no se modifica. ¿Co
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error || 'No se pudo registrar el cargue');
+      await cargarPre();
       setCargue({ ok: true, t: `Cargue ${d.id} registrado: ${d.nuevos} nuevos y ${d.actualizados} actualizados en Pre-registro${d.yaEnNutria ? ` (${d.yaEnNutria} ya estaban en Nutria)` : ''}.` });
     } catch (e) {
       setCargue({ ok: false, t: (e as Error).message });
@@ -72,7 +93,7 @@ Quedan en Pre-registro para verificarlos; la base de Nutria no se modifica. ¿Co
     setArchivo(f.name);
     try {
       if (f.size > 40 * 1024 * 1024) throw new Error('El archivo supera 40 MB');
-      const [XLSX, res] = await Promise.all([import('xlsx'), fetch('/api/cruce/base', { cache: 'no-store' })]);
+      const [XLSX, res] = await Promise.all([import('xlsx'), fetch('/api/cruce/base', { cache: 'no-store' }), cargarPre()]);
       if (!res.ok) throw new Error('No se pudo leer la base de Nutria (¿sesión vencida?)');
       const base = (await res.json()) as CasoBase[];
       const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
@@ -118,12 +139,13 @@ Quedan en Pre-registro para verificarlos; la base de Nutria no se modifica. ¿Co
       .filter(n => filtroAnio === 'Todos' || anio(n.fecha) === filtroAnio)
       .filter(n => filtroDepto === 'Todos' || n.departamento === filtroDepto)
       .filter(n => filtroSeg === 'Todos' || (filtroSeg === 'sin') === sinSeguimiento(n, filtroAnio))
+      .filter(n => filtroPre === 'Todos' || (filtroPre === 'no' ? !pre.registros[n.clave] : pre.registros[n.clave]?.estado === filtroPre))
       .filter(n => !q || n.clave.includes(q) || clave(n.nombre).includes(q))
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
   };
 
-  const ENC_ARCHIVO = ['Tipo ID', 'Documento', 'Nombre', 'Departamento', 'Municipio', 'UPGD', 'Fecha más reciente (consulta / registro)', 'Registros en el archivo', 'Seguimientos (con clasificación)', 'Última clasificación nutricional', 'Notificación sin seguimiento (año)', 'Estado vital', 'Fuente'];
-  const filaArchivo = (n: NinoArchivo) => [n.tipo, n.documento, n.nombre, n.departamento, n.municipio, n.upgd, dmy(n.fecha), n.registros, n.seguimientos, n.clasificacion || 'SIN SEGUIMIENTO', n.aniosSinSeguimiento.join(', '), n.estadoVital, n.fuente];
+  const ENC_ARCHIVO = ['Tipo ID', 'Documento', 'Nombre', 'Departamento', 'Municipio', 'UPGD', 'Fecha más reciente (consulta / registro)', 'Registros en el archivo', 'Seguimientos (con clasificación)', 'Última clasificación nutricional', 'Notificación sin seguimiento (año)', 'Estado vital', 'Fuente', 'Pre-registro'];
+  const filaArchivo = (n: NinoArchivo) => [n.tipo, n.documento, n.nombre, n.departamento, n.municipio, n.upgd, dmy(n.fecha), n.registros, n.seguimientos, n.clasificacion || 'SIN SEGUIMIENTO', n.aniosSinSeguimiento.join(', '), n.estadoVital, n.fuente, pre.registros[n.clave]?.estado ?? ''];
 
   return (
     <div className="flex flex-col gap-5">
@@ -144,13 +166,14 @@ Quedan en Pre-registro para verificarlos; la base de Nutria no se modifica. ¿Co
 
       {datos && r && (
         <>
-          <section className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <section className="grid gap-3 sm:grid-cols-3 lg:grid-cols-7">
             {[
               ['Registros en el archivo', datos.totalFilas, 'filas con identificación'],
               ['Niños únicos', datos.ninos.length, 'después de quitar repetidos'],
               ['Ya están en Nutria', r.coinciden.length, `de ${datos.base.length} niños en Nutria`],
               ['Faltan en Nutria', r.faltan.length, 'están en el archivo, no en Nutria'],
               ['Solo en Nutria', r.sobran.length, 'no aparecen en el archivo'],
+              ['En pre-registro', r.faltan.filter(n => pre.registros[n.clave]).length, `de los que faltan · ${r.faltan.filter(n => pre.registros[n.clave]?.estado === 'verificado').length} verificados`],
               ['Sin seguimiento', r.sinSeg.length, `niños con clasificación nutricional (BF) vacía · ${r.filasSinSeg} registros`],
             ].map(([t, v, d]) => (
               <div key={t} className="tarjeta p-4">
@@ -160,6 +183,37 @@ Quedan en Pre-registro para verificarlos; la base de Nutria no se modifica. ¿Co
               </div>
             ))}
           </section>
+
+          {(() => {
+            // Conexión con Pre-registro: faltantes del año y departamento seleccionados
+            const delFiltro = r.faltan.filter(n => (filtroAnio === 'Todos' || anio(n.fecha) === filtroAnio) && (filtroDepto === 'Todos' || n.departamento === filtroDepto));
+            const sinRegistrar = delFiltro.filter(n => !pre.registros[n.clave]);
+            return (
+              <section className="tarjeta flex flex-wrap items-center justify-between gap-3 border-l-4 border-marca-600 p-4">
+                <div className="text-sm">
+                  <p className="font-semibold text-marca-900">
+                    Pre-registro · {filtroAnio === 'Todos' ? 'todos los años' : filtroAnio}{filtroDepto !== 'Todos' ? ` · ${filtroDepto}` : ''}
+                  </p>
+                  <p className="text-slate-600">
+                    Faltan en Nutria <b>{delFiltro.length}</b> · ya en pre-registro <b>{delFiltro.length - sinRegistrar.length}</b> · sin registrar{' '}
+                    <b className={sinRegistrar.length ? 'text-red-600' : ''}>{sinRegistrar.length}</b>
+                    {pre.ultimoCargue && (
+                      <span className="text-slate-500"> · último cargue {pre.ultimoCargue.id} ({new Date(pre.ultimoCargue.fecha).toLocaleString('es-CO', { timeZone: 'America/Bogota' })}, {pre.ultimoCargue.por})</span>
+                    )}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {sinRegistrar.length > 0 && (
+                    <button className="boton" disabled={enviando} onClick={() => registrarCargue(sinRegistrar, r.enBase)}>
+                      {enviando ? 'Registrando…' : `Registrar cargue de los ${sinRegistrar.length} sin registrar`}
+                    </button>
+                  )}
+                  <Link href="/preregistro" className="boton-sec">Ir a Pre-registro →</Link>
+                </div>
+                {cargue && <p className={`w-full text-sm ${cargue.ok ? 'text-marca-700' : 'text-red-600'}`}>{cargue.t}</p>}
+              </section>
+            );
+          })()}
 
           <section className="tarjeta grid gap-6 overflow-x-auto p-4 lg:grid-cols-2">
             <div>
@@ -256,6 +310,16 @@ Quedan en Pre-registro para verificarlos; la base de Nutria no se modifica. ¿Co
                     <option>Todos</option>{r.deptos.map(d => <option key={d}>{d}</option>)}
                   </select>
                 </label>
+                <label className="flex items-center gap-2">Pre-registro
+                  <select value={filtroPre} onChange={e => setFiltroPre(e.target.value as typeof filtroPre)} className="rounded-lg border border-slate-300 px-2 py-1">
+                    <option value="Todos">Todos</option>
+                    <option value="no">No registrados</option>
+                    <option value="pendiente">Pendientes</option>
+                    <option value="verificado">Verificados</option>
+                    <option value="descartado">Descartados</option>
+                    <option value="incorporado">Incorporados</option>
+                  </select>
+                </label>
                 <label className="flex items-center gap-2">Seguimiento
                   <select value={filtroSeg} onChange={e => setFiltroSeg(e.target.value as 'Todos' | 'con' | 'sin')} className="rounded-lg border border-slate-300 px-2 py-1">
                     <option value="Todos">Todos</option>
@@ -303,7 +367,7 @@ Quedan en Pre-registro para verificarlos; la base de Nutria no se modifica. ¿Co
                           <tr>
                             <th className="px-2 py-2">Documento</th><th className="px-2 py-2">Nombre</th><th className="px-2 py-2">Municipio</th>
                             <th className="px-2 py-2">UPGD</th><th className="px-2 py-2">Fecha más reciente</th><th className="px-2 py-2">Registros</th><th className="px-2 py-2">Seguim.</th><th className="px-2 py-2">Última clasificación</th>
-                            <th className="px-2 py-2">Estado vital</th>{conNutria && <th className="px-2 py-2">En Nutria</th>}
+                            <th className="px-2 py-2">Estado vital</th><th className="px-2 py-2">Pre-registro</th>{conNutria && <th className="px-2 py-2">En Nutria</th>}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -325,6 +389,7 @@ Quedan en Pre-registro para verificarlos; la base de Nutria no se modifica. ¿Co
                                 {n.clasificacion && <span className="block">{sinSeguimiento(n, filtroAnio) ? `Otro registro: ${n.clasificacion}` : n.clasificacion}</span>}
                               </td>
                               <td className={`px-2 py-1.5 ${/FALLEC/i.test(n.estadoVital) ? 'font-semibold text-red-600' : ''}`}>{n.estadoVital || '—'}</td>
+                              <td className="px-2 py-1.5"><EstadoPreregistro e={pre.registros[n.clave]?.estado} enNutria={r.enBase.has(n.clave)} /></td>
                               {conNutria && (
                                 <td className="px-2 py-1.5">
                                   {r.enBase.has(n.clave) ? (
