@@ -89,7 +89,7 @@ export function CruceSeguimiento() {
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
   };
 
-  const ENC_ARCHIVO = ['Tipo ID', 'Documento', 'Nombre', 'Departamento', 'Municipio', 'UPGD', 'Consulta más reciente', 'Registros en el archivo', 'Seguimientos (con clasificación)', 'Última clasificación nutricional', 'Estado vital', 'Fuente'];
+  const ENC_ARCHIVO = ['Tipo ID', 'Documento', 'Nombre', 'Departamento', 'Municipio', 'UPGD', 'Fecha más reciente (consulta / registro)', 'Registros en el archivo', 'Seguimientos (con clasificación)', 'Última clasificación nutricional', 'Estado vital', 'Fuente'];
   const filaArchivo = (n: NinoArchivo) => [n.tipo, n.documento, n.nombre, n.departamento, n.municipio, n.upgd, dmy(n.fecha), n.registros, n.seguimientos, n.clasificacion || 'SIN SEGUIMIENTO', n.estadoVital, n.fuente];
 
   return (
@@ -130,7 +130,7 @@ export function CruceSeguimiento() {
 
           <section className="tarjeta grid gap-6 overflow-x-auto p-4 lg:grid-cols-2">
             <div>
-              <h2 className="mb-2 font-semibold">Niños únicos por año de la consulta más reciente</h2>
+              <h2 className="mb-2 font-semibold">Niños únicos por año (consulta más reciente; sin seguimiento: fecha de registro del caso)</h2>
               <table className="w-full text-sm">
                 <thead className="text-left text-xs uppercase text-slate-500">
                   <tr><th className="pr-4">Año</th><th className="pr-4">Únicos en el archivo</th><th className="pr-4">Ya en Nutria</th><th className="pr-4">Faltan en Nutria</th><th>Sin seguimiento</th></tr>
@@ -256,7 +256,7 @@ export function CruceSeguimiento() {
                         <thead className="sticky top-0 bg-marca-50 text-left text-xs uppercase text-marca-900">
                           <tr>
                             <th className="px-2 py-2">Documento</th><th className="px-2 py-2">Nombre</th><th className="px-2 py-2">Municipio</th>
-                            <th className="px-2 py-2">UPGD</th><th className="px-2 py-2">Consulta más reciente</th><th className="px-2 py-2">Registros</th><th className="px-2 py-2">Seguim.</th><th className="px-2 py-2">Última clasificación</th>
+                            <th className="px-2 py-2">UPGD</th><th className="px-2 py-2">Fecha más reciente</th><th className="px-2 py-2">Registros</th><th className="px-2 py-2">Seguim.</th><th className="px-2 py-2">Última clasificación</th>
                             <th className="px-2 py-2">Estado vital</th>{vista === 'coinciden' && <th className="px-2 py-2">En Nutria</th>}
                           </tr>
                         </thead>

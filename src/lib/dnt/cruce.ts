@@ -11,7 +11,8 @@ export interface NinoArchivo {
   departamento: string;
   municipio: string;
   upgd: string;
-  fecha: string; // consulta más reciente (AAAA-MM-DD)
+  /** Fecha más reciente (AAAA-MM-DD): de consulta si hay seguimiento; de registro del caso (AQ) si la clasificación está vacía. */
+  fecha: string;
   registros: number;
   estadoVital: string;
   fuente: string;
@@ -57,6 +58,8 @@ function columnas(encabezado: unknown[]) {
     mpio: idx('NomMpioResidencia', 'Municipio'),
     upgd: idx('NomUPGD', 'UPGD'),
     fechas: [idx('FechaConsulta'), idx('FechaRegistroCaso'), idx('FechaNotificacion')].filter(i => i >= 0),
+    // Registros sin seguimiento (clasificación vacía): la fecha que vale es la de registro del caso
+    fechasRegistro: [idx('FechaRegistroCaso'), idx('FechaRegistroPersona'), idx('FechaRegistro'), idx('FechaConsulta')].filter(i => i >= 0),
     vital: idx('EstadoVital'),
     fuente: idx('Fuente'),
     clasif: idx('NomClasificacionNutricional', 'ClasificacionNutricional'),
@@ -73,9 +76,9 @@ export function leerArchivo(filas: unknown[][]): { ninos: Map<string, NinoArchiv
     const k = clave(f[c.doc]);
     if (!k) continue;
     totalFilas++;
-    const fecha = c.fechas.map(i => fechaISO(f[i])).find(Boolean) ?? '';
     const previo = ninos.get(k);
     const clasif = c.clasif >= 0 ? texto(f[c.clasif]) : '';
+    const fecha = (clasif || c.clasif < 0 ? c.fechas : c.fechasRegistro).map(i => fechaISO(f[i])).find(Boolean) ?? '';
     // La clasificación vigente es la del seguimiento más reciente que la tenga
     const usarClasif = !!clasif && (!previo?.clasificacion || fecha >= previo.fechaClasificacion);
     const dato: NinoArchivo = {
