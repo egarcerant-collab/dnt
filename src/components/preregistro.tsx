@@ -77,7 +77,7 @@ function Fila({ r, ips }: { r: Preregistro; ips: string[] }) {
   );
 }
 
-export function PanelPreregistro({ registros, cargues, ips }: { registros: Preregistro[]; cargues: Cargue[]; ips: string[] }) {
+export function PanelPreregistro({ registros, cargues, ips, onIrCruce }: { registros: Preregistro[]; cargues: Cargue[]; ips: string[]; onIrCruce: () => void }) {
   const [filtro, setFiltro] = useState<EstadoPre | 'todos'>('pendiente');
   const [cargueSel, setCargueSel] = useState('todos');
   const [buscar, setBuscar] = useState('');
@@ -118,7 +118,7 @@ export function PanelPreregistro({ registros, cargues, ips }: { registros: Prere
             </>
           )}
         </div>
-        <Link href="/cruce" className="boton">{ultimo ? 'Nuevo cargue en Cruce de bases' : 'Ir a Cruce de bases'}</Link>
+        <button type="button" onClick={onIrCruce} className="boton">{ultimo ? 'Nuevo cargue en Cruce de bases' : 'Ir a Cruce de bases'}</button>
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -188,7 +188,7 @@ export function PanelPreregistro({ registros, cargues, ips }: { registros: Prere
             ))}
           </tbody>
         </table>
-        {!cargues.length && <p className="text-sm text-slate-500">Aún no hay cargues. Regístrelos desde <Link href="/cruce" className="underline">Cruce de bases</Link>.</p>}
+        {!cargues.length && <p className="text-sm text-slate-500">Aún no hay cargues. Regístrelos desde <button type="button" onClick={onIrCruce} className="underline">Cruce de bases</button>.</p>}
       </section>
     </div>
   );

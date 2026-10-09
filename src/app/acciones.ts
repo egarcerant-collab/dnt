@@ -366,7 +366,7 @@ export async function accionVerificarPre(_prev: EstadoAccion, form: FormData): P
   } catch (e) {
     return { ok: false, mensaje: (e as Error).message };
   }
-  revalidatePath('/preregistro');
+  revalidatePath('/cruce');
   return { ok: true, mensaje: 'Guardado.' };
 }
 

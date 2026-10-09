@@ -20,8 +20,8 @@ interface EstadoPreCruce {
 
 const COLOR_PRE = { pendiente: 'bg-amber-100 text-amber-800', verificado: 'bg-marca-100 text-marca-800', descartado: 'bg-slate-200 text-slate-600', incorporado: 'bg-green-100 text-green-800' };
 
-function EstadoPreregistro({ e, enNutria }: { e?: keyof typeof COLOR_PRE; enNutria: boolean }) {
-  if (e) return <Link href="/preregistro" className={`rounded-full px-2 py-0.5 text-xs font-semibold ${COLOR_PRE[e]}`}>{e[0].toUpperCase() + e.slice(1)}</Link>;
+function EstadoPreregistro({ e, enNutria, onIr }: { e?: keyof typeof COLOR_PRE; enNutria: boolean; onIr: () => void }) {
+  if (e) return <button type="button" onClick={onIr} className={`rounded-full px-2 py-0.5 text-xs font-semibold ${COLOR_PRE[e]}`}>{e[0].toUpperCase() + e.slice(1)}</button>;
   return <span className="text-xs text-slate-400">{enNutria ? '—' : 'No registrado'}</span>;
 }
 
@@ -37,7 +37,8 @@ function descargarCsv(nombre: string, encabezado: string[], filas: (string | num
 const anio = (f: string) => f.slice(0, 4) || 'Sin fecha';
 const dmy = (f: string | null) => (f ? f.split('-').reverse().join('/') : '—');
 
-export function CruceSeguimiento() {
+/** onIrPre: cambia a la pestaña Pre-registro; onCargue: refresca sus datos tras registrar un cargue. */
+export function CruceSeguimiento({ onIrPre, onCargue }: { onIrPre: () => void; onCargue: () => void }) {
   const [estado, setEstado] = useState<'inicio' | 'leyendo' | 'listo'>('inicio');
   const [error, setError] = useState('');
   const [archivo, setArchivo] = useState('');
@@ -79,6 +80,7 @@ Quedan en Pre-registro para verificarlos; la base de Nutria no se modifica. ¿Co
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error || 'No se pudo registrar el cargue');
       await cargarPre();
+      onCargue();
       setCargue({ ok: true, t: `Cargue ${d.id} registrado: ${d.nuevos} nuevos y ${d.actualizados} actualizados en Pre-registro${d.yaEnNutria ? ` (${d.yaEnNutria} ya estaban en Nutria)` : ''}.` });
     } catch (e) {
       setCargue({ ok: false, t: (e as Error).message });
@@ -208,7 +210,7 @@ Quedan en Pre-registro para verificarlos; la base de Nutria no se modifica. ¿Co
                       {enviando ? 'Registrando…' : `Registrar cargue de los ${sinRegistrar.length} sin registrar`}
                     </button>
                   )}
-                  <Link href="/preregistro" className="boton-sec">Ir a Pre-registro →</Link>
+                  <button type="button" onClick={onIrPre} className="boton-sec">Ir a Pre-registro →</button>
                 </div>
                 {cargue && <p className={`w-full text-sm ${cargue.ok ? 'text-marca-700' : 'text-red-600'}`}>{cargue.t}</p>}
               </section>
@@ -358,7 +360,7 @@ Quedan en Pre-registro para verificarlos; la base de Nutria no se modifica. ¿Co
                     </div>
                     {cargue && (
                       <p className={`text-sm ${cargue.ok ? 'text-marca-700' : 'text-red-600'}`}>
-                        {cargue.t} {cargue.ok && <Link href="/preregistro" className="font-semibold underline">Ir a Pre-registro →</Link>}
+                        {cargue.t} {cargue.ok && <button type="button" onClick={onIrPre} className="font-semibold underline">Ir a Pre-registro →</button>}
                       </p>
                     )}
                     <div className="max-h-[60vh] overflow-auto">
@@ -389,7 +391,7 @@ Quedan en Pre-registro para verificarlos; la base de Nutria no se modifica. ¿Co
                                 {n.clasificacion && <span className="block">{sinSeguimiento(n, filtroAnio) ? `Otro registro: ${n.clasificacion}` : n.clasificacion}</span>}
                               </td>
                               <td className={`px-2 py-1.5 ${/FALLEC/i.test(n.estadoVital) ? 'font-semibold text-red-600' : ''}`}>{n.estadoVital || '—'}</td>
-                              <td className="px-2 py-1.5"><EstadoPreregistro e={pre.registros[n.clave]?.estado} enNutria={r.enBase.has(n.clave)} /></td>
+                              <td className="px-2 py-1.5"><EstadoPreregistro e={pre.registros[n.clave]?.estado} enNutria={r.enBase.has(n.clave)} onIr={onIrPre} /></td>
                               {conNutria && (
                                 <td className="px-2 py-1.5">
                                   {r.enBase.has(n.clave) ? (
