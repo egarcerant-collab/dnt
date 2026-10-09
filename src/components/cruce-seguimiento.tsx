@@ -34,6 +34,37 @@ export function CruceSeguimiento() {
   const [filtroDepto, setFiltroDepto] = useState('Todos');
   const [buscar, setBuscar] = useState('');
   const [filtroSeg, setFiltroSeg] = useState<'Todos' | 'con' | 'sin'>('Todos');
+  const [cargue, setCargue] = useState<{ ok: boolean; t: string } | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  /** Registra el cargue: los niños listados que faltan en Nutria pasan al pre-registro (no a la base). */
+  async function registrarCargue(lista: NinoArchivo[], enBase: Map<string, unknown>) {
+    const faltantes = lista.filter(n => !enBase.has(n.clave));
+    if (!faltantes.length) return setCargue({ ok: false, t: 'En el listado actual no hay niños que falten en Nutria.' });
+    const criterio = [`Año ${filtroAnio}`, `Departamento ${filtroDepto}`, `Seguimiento ${filtroSeg === 'sin' ? 'sin seguimiento' : filtroSeg === 'con' ? 'con seguimiento' : 'todos'}`, buscar && `Búsqueda ${buscar}`].filter(Boolean).join(' · ');
+    if (!confirm(`Se registrará un cargue con ${faltantes.length} niño(s) que faltan en Nutria (${criterio}).
+
+Quedan en Pre-registro para verificarlos; la base de Nutria no se modifica. ¿Continuar?`)) return;
+    setEnviando(true);
+    setCargue(null);
+    try {
+      const res = await fetch('/api/preregistro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          archivo, criterio, totalFilas: datos?.totalFilas ?? 0, unicos: datos?.ninos.length ?? 0,
+          ninos: faltantes.map(n => ({ clave: n.clave, documento: n.documento, tipo: n.tipo, nombre: n.nombre, departamento: n.departamento, municipio: n.municipio, upgd: n.upgd, fecha: n.fecha, clasificacion: n.clasificacion, sinSeguimiento: sinSeguimiento(n, filtroAnio), registros: n.registros, datos: n.datos })),
+        }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || 'No se pudo registrar el cargue');
+      setCargue({ ok: true, t: `Cargue ${d.id} registrado: ${d.nuevos} nuevos y ${d.actualizados} actualizados en Pre-registro${d.yaEnNutria ? ` (${d.yaEnNutria} ya estaban en Nutria)` : ''}.` });
+    } catch (e) {
+      setCargue({ ok: false, t: (e as Error).message });
+    } finally {
+      setEnviando(false);
+    }
+  }
 
   async function procesar(f: File) {
     setEstado('leyendo');
@@ -248,12 +279,24 @@ export function CruceSeguimiento() {
                   <>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm text-slate-600"><b>{lista.length}</b> niños con los filtros actuales</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                      {vista !== 'coinciden' && (
+                        <button className="boton" disabled={enviando} onClick={() => registrarCargue(lista, r.enBase)}>
+                          {enviando ? 'Registrando…' : `Registrar cargue en Pre-registro (${lista.filter(n => !r.enBase.has(n.clave)).length})`}
+                        </button>
+                      )}
                       <button className="boton-sec" onClick={() => descargarCsv(`${vista === 'faltan' ? 'faltan_en_nutria' : vista === 'coinciden' ? 'coinciden' : 'todos_archivo'}_${filtroAnio}_${new Date().toISOString().slice(0, 10)}.csv`,
                         conNutria ? [...ENC_ARCHIVO, 'Está en Nutria', 'IPS en Nutria'] : ENC_ARCHIVO,
                         lista.map(n => (conNutria ? [...filaArchivo(n), r.enBase.has(n.clave) ? 'SI' : 'NO', r.enBase.get(n.clave)?.ips ?? ''] : filaArchivo(n))))}>
                         Descargar Excel (CSV)
                       </button>
+                      </div>
                     </div>
+                    {cargue && (
+                      <p className={`text-sm ${cargue.ok ? 'text-marca-700' : 'text-red-600'}`}>
+                        {cargue.t} {cargue.ok && <Link href="/preregistro" className="font-semibold underline">Ir a Pre-registro →</Link>}
+                      </p>
+                    )}
                     <div className="max-h-[60vh] overflow-auto">
                       <table className="w-full text-sm">
                         <thead className="sticky top-0 bg-marca-50 text-left text-xs uppercase text-marca-900">

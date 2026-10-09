@@ -1,6 +1,6 @@
 import 'server-only';
 import { departamentoCanonico, ipsCanonica, municipioCanonico } from './catalogo';
-import { leerExcel } from './excel-source';
+import { casosFuente } from './fuente';
 import { actualizarJson, getStore } from './store';
 import type { Caso } from './types';
 
@@ -37,14 +37,14 @@ export function aplicarAjuste<T extends Pick<Caso, 'departamento' | 'municipio' 
 
 /** Caso de la base con sus ajustes; null si no existe o fue eliminado. Para validar permisos sin cargar todo. */
 export async function casoVigente(id: string) {
-  const [excel, ajustes] = await Promise.all([leerExcel(), leerAjustes()]);
-  const caso = excel.casos.find(c => c.id === id);
+  const [casos, ajustes] = await Promise.all([casosFuente(), leerAjustes()]);
+  const caso = casos.find(c => c.id === id);
   if (!caso || ajustes[id]?.eliminado) return null;
   return aplicarAjuste(caso, ajustes[id]);
 }
 
 async function existe(id: string) {
-  const caso = (await leerExcel()).casos.find(c => c.id === id);
+  const caso = (await casosFuente()).find(c => c.id === id);
   if (!caso) throw new Error('Caso no encontrado');
   return caso;
 }

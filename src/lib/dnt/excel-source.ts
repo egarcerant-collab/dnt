@@ -143,7 +143,7 @@ function edadMeses(nac: string | null, ref: string | null): number | null {
   return m >= 0 ? Math.floor(m) : null;
 }
 
-type CasoBase = Omit<Caso, 'alertas' | 'enSivigila' | 'condicionFinalSivigila'>;
+export type CasoBase = Omit<Caso, 'alertas' | 'enSivigila' | 'condicionFinalSivigila'>;
 
 export interface UpgdSivigila { nombre: string; nit: string }
 

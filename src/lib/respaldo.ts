@@ -20,6 +20,8 @@ const ARCHIVOS = [
   'correos-enviados.json',
   'auditoria-exportaciones.json',
   'ajustes-casos.json',
+  'preregistro.json',
+  'casos-adicionales.json',
 ];
 const DIAS_RETENCION = 30;
 const MAX_ADJUNTO = 20 * 1024 * 1024;

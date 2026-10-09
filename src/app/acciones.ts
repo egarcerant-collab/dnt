@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { casoVigente, eliminarCaso, moverCaso, restaurarCaso } from '@/lib/dnt/ajustes';
+import { descartarPre, incorporarPre, reabrirPre, verificarPre } from '@/lib/dnt/preregistro';
 import { guardarFirma, quitarFirma } from '@/lib/firmas';
 import { enviarMensaje, type TipoMensaje } from '@/lib/dnt/mensajes';
 import { avisarMensajeIps, enviarInformes } from '@/lib/dnt/informe-ips';
@@ -348,4 +349,34 @@ export async function accionRestaurarCaso(_prev: EstadoAccion, form: FormData): 
   }
   refrescarVistas(id);
   return { ok: true, mensaje: 'Registro restaurado.' };
+}
+
+// ── Pre-registro de bases externas ─────────────────────────────────────
+
+export async function accionVerificarPre(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
+  const s = await getSesion();
+  if (!s || !esEpsi(s.rol)) return { ok: false, mensaje: 'No autorizado' };
+  const k = String(form.get('clave') ?? '');
+  try {
+    const decision = String(form.get('decision') ?? '');
+    if (decision === 'verificar') await verificarPre(k, { ips: String(form.get('ips') ?? ''), nota: String(form.get('nota') ?? '') }, s.nombre);
+    else if (decision === 'descartar') await descartarPre(k, String(form.get('nota') ?? ''), s.nombre);
+    else if (decision === 'reabrir') await reabrirPre(k, s.nombre);
+    else throw new Error('Acción inválida');
+  } catch (e) {
+    return { ok: false, mensaje: (e as Error).message };
+  }
+  revalidatePath('/preregistro');
+  return { ok: true, mensaje: 'Guardado.' };
+}
+
+export async function accionIncorporarPre(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
+  try {
+    const s = await confirmarClave(form);
+    const n = await incorporarPre('verificados', s.nombre);
+    ['/epsi', '/seguimiento', '/prestador', '/preregistro', '/cruce', '/informes'].forEach(r => revalidatePath(r));
+    return { ok: true, mensaje: n ? `${n} niño(s) incorporados a Nutria. Ya aparecen en Seguimiento y en el módulo de su IPS.` : 'No había niños nuevos para incorporar.' };
+  } catch (e) {
+    return { ok: false, mensaje: (e as Error).message };
+  }
 }

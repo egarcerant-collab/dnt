@@ -23,6 +23,8 @@ export interface NinoArchivo {
   fechaClasificacion: string;
   /** Años (por FechaRegistroCaso) de los registros con clasificación nutricional vacía: notificaciones sin seguimiento. */
   aniosSinSeguimiento: string[];
+  /** Todas las columnas del registro más reciente (encabezado → valor), para el pre-registro. */
+  datos: Record<string, string>;
 }
 
 /** Sin seguimiento: tiene un registro con la clasificación nutricional vacía (solo notificación) en ese año, o en cualquiera. */
@@ -32,7 +34,7 @@ export const sinSeguimiento = (n: NinoArchivo, anio = 'Todos') =>
 export const clave = (v: unknown) => String(v ?? '').trim().toUpperCase().replace(/[^0-9A-Z]/g, '');
 const texto = (v: unknown) => String(v ?? '').trim();
 
-function fechaISO(v: unknown): string {
+export function fechaISO(v: unknown): string {
   if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString().slice(0, 10);
   if (typeof v === 'number' && v > 20000 && v < 80000) return new Date(Math.round((v - 25569) * 864e5)).toISOString().slice(0, 10); // serial de Excel
   const s = texto(v);
@@ -72,6 +74,7 @@ function columnas(encabezado: unknown[]) {
 export function leerArchivo(filas: unknown[][]): { ninos: Map<string, NinoArchivo>; totalFilas: number } {
   // Encabezado: primera fila (de las 10 primeras) que tenga la columna de identificación
   const iEnc = Math.max(0, filas.slice(0, 10).findIndex(f => f.some(c => /IDENTIFICACION|DOCUMENTO/.test(clave(c)))));
+  const encabezado = (filas[iEnc] ?? []).map((h, i) => texto(h) || `COL_${i + 1}`);
   const c = columnas(filas[iEnc] ?? []);
   const ninos = new Map<string, NinoArchivo>();
   let totalFilas = 0;
@@ -99,6 +102,7 @@ export function leerArchivo(filas: unknown[][]): { ninos: Map<string, NinoArchiv
       seguimientos: (previo?.seguimientos ?? 0) + (clasif ? 1 : 0),
       clasificacion: usarClasif ? clasif : (previo?.clasificacion ?? ''),
       fechaClasificacion: usarClasif ? fecha : (previo?.fechaClasificacion ?? ''),
+      datos: Object.fromEntries(encabezado.map((h, i) => [h, f[i] instanceof Date ? fechaISO(f[i]) : texto(f[i])]).filter(([, v]) => v !== '')),
       aniosSinSeguimiento: [...new Set([...(previo?.aniosSinSeguimiento ?? []), ...(!clasif && c.clasif >= 0 && fecha ? [fecha.slice(0, 4)] : [])])],
     };
     // Se conserva la información del registro más reciente de cada niño

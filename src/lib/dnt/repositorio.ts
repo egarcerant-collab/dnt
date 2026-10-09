@@ -1,6 +1,7 @@
 import 'server-only';
 import { aplicarAjuste, leerAjustes } from './ajustes';
 import { leerExcel, norm } from './excel-source';
+import { casosFuente } from './fuente';
 import { actualizarJson, getStore } from './store';
 import { hoyColombia } from '../fecha';
 import { MAX_CONTROLES, type Caso, type Control, type Estado, type NuevoControlInput, type TipoAlerta } from './types';
@@ -57,11 +58,11 @@ export interface Base {
 export async function obtenerBase(): Promise<Base> {
   const store = getStore();
   // Base y controles se leen en paralelo
-  const [excel, appLeido, ajustes] = await Promise.all([leerExcel(), store.leer<SeguimientosApp>(ARCHIVO_SEGUIMIENTOS), leerAjustes()]);
+  const [excel, fuente, appLeido, ajustes] = await Promise.all([leerExcel(), casosFuente(), store.leer<SeguimientosApp>(ARCHIVO_SEGUIMIENTOS), leerAjustes()]);
   const app = appLeido ?? {};
 
   const eliminados: Base['eliminados'] = [];
-  const vigentes = excel.casos.filter(c => {
+  const vigentes = fuente.filter(c => {
     const e = ajustes[c.id]?.eliminado;
     if (e) eliminados.push({ id: c.id, nombre: c.nombre, documento: `${c.tipoDocumento} ${c.documento}`, ips: c.ipsSeguimiento, ...e });
     return !e;
@@ -110,7 +111,7 @@ export async function obtenerCaso(id: string): Promise<{ caso: Caso; fechaCorte:
 
 /** Guarda un control diligenciado por el prestador (siguiente bloque libre de AY..KF). */
 export async function registrarControl(id: string, input: NuevoControlInput, usuario: string): Promise<number> {
-  const base = (await leerExcel()).casos.find(c => c.id === id);
+  const base = (await casosFuente()).find(c => c.id === id);
   if (!base || (await leerAjustes())[id]?.eliminado) throw new Error('Caso no encontrado');
   const ahora = new Date().toISOString();
   let numero = 0;
@@ -134,7 +135,7 @@ export async function registrarControl(id: string, input: NuevoControlInput, usu
 
 /** Columna AX: IPS / ESE de atención primaria, diligenciada por el prestador. */
 export async function registrarAtencionPrimaria(id: string, valor: string): Promise<void> {
-  if (!(await leerExcel()).casos.some(c => c.id === id)) throw new Error('Caso no encontrado');
+  if (!(await casosFuente()).some(c => c.id === id)) throw new Error('Caso no encontrado');
   await actualizarJson<SeguimientosApp>(ARCHIVO_SEGUIMIENTOS, () => ({}), app => {
     const reg: RegistroApp = app[id] ?? { controles: [], actualizadoEn: '' };
     reg.ipsAtencionPrimaria = valor.trim().slice(0, 150);
