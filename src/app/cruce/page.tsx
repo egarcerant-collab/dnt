@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { Encabezado } from '@/components/encabezado';
 import { ModuloCruce } from '@/components/modulo-cruce';
-import { leerPreregistro } from '@/lib/dnt/preregistro';
+import { leerPreregistro, sugerirIps } from '@/lib/dnt/preregistro';
 import { obtenerBase } from '@/lib/dnt/repositorio';
 import { esEpsi, getSesion } from '@/lib/sesion';
 
@@ -24,7 +24,7 @@ export default async function Cruce({ searchParams }: { searchParams: Promise<{ 
             registran como un cargue en el pre-registro, donde se verifican con todos sus datos antes de incorporarlos a la base.
           </p>
         </div>
-        <ModuloCruce registros={Object.values(pre.registros)} cargues={pre.cargues} ips={ips} inicial={vista === 'pre' ? 'pre' : 'cruce'} />
+        <ModuloCruce sugerencias={sugerirIps(Object.values(pre.registros).filter(r => r.estado !== 'incorporado'), base.casos)} registros={Object.values(pre.registros)} cargues={pre.cargues} ips={ips} inicial={vista === 'pre' ? 'pre' : 'cruce'} />
       </main>
     </>
   );

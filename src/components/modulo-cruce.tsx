@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import type { Cargue, Preregistro } from '@/lib/dnt/preregistro';
+import type { Cargue, Preregistro, SugerenciaIps } from '@/lib/dnt/preregistro';
 import { CruceSeguimiento } from './cruce-seguimiento';
 import { PanelPreregistro } from './preregistro';
 
@@ -10,7 +10,7 @@ import { PanelPreregistro } from './preregistro';
  * Cruce de bases y Pre-registro en una sola pestaña. Ambas vistas quedan montadas (solo se oculta la inactiva)
  * para no perder el archivo cargado ni los filtros al cambiar de vista.
  */
-export function ModuloCruce({ registros, cargues, ips, inicial }: { registros: Preregistro[]; cargues: Cargue[]; ips: string[]; inicial: 'cruce' | 'pre' }) {
+export function ModuloCruce({ registros, cargues, ips, sugerencias, inicial }: { registros: Preregistro[]; cargues: Cargue[]; ips: string[]; sugerencias: Record<string, SugerenciaIps>; inicial: 'cruce' | 'pre' }) {
   const router = useRouter();
   const [vista, setVista] = useState(inicial);
   const pendientes = registros.filter(r => r.estado === 'pendiente').length;
@@ -38,7 +38,7 @@ export function ModuloCruce({ registros, cargues, ips, inicial }: { registros: P
         <CruceSeguimiento onIrPre={() => irA('pre')} onCargue={() => router.refresh()} />
       </div>
       <div className={vista === 'pre' ? '' : 'hidden'}>
-        <PanelPreregistro registros={registros} cargues={cargues} ips={ips} onIrCruce={() => irA('cruce')} />
+        <PanelPreregistro registros={registros} cargues={cargues} ips={ips} sugerencias={sugerencias} onIrCruce={() => irA('cruce')} />
       </div>
     </div>
   );

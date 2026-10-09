@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useActionState, useMemo, useState } from 'react';
 import { accionIncorporarPre, accionVerificarPre, type EstadoAccion } from '@/app/acciones';
-import type { Cargue, EstadoPre, Preregistro } from '@/lib/dnt/preregistro';
+import type { Cargue, EstadoPre, Preregistro, SugerenciaIps } from '@/lib/dnt/preregistro';
 
 const ETIQUETA: Record<EstadoPre, { t: string; c: string }> = {
   pendiente: { t: 'Pendiente', c: 'bg-amber-100 text-amber-800' },
@@ -15,11 +15,12 @@ const dmy = (f: string) => (f ? f.slice(0, 10).split('-').reverse().join('/') : 
 const fechaHora = (iso: string) => new Date(iso).toLocaleString('es-CO', { timeZone: 'America/Bogota' });
 const campo = 'rounded-lg border border-slate-300 px-2 py-1 text-sm';
 
-function Fila({ r, ips }: { r: Preregistro; ips: string[] }) {
+function Fila({ r, ips, sugerencia }: { r: Preregistro; ips: string[]; sugerencia?: SugerenciaIps }) {
   const [estado, accion, enviando] = useActionState<EstadoAccion, FormData>(accionVerificarPre, null);
   const [abierto, setAbierto] = useState(false);
   // IPS sugerida: la UPGD que notificó, si coincide con una IPS de la red
-  const sugerida = r.ipsSeguimiento ?? ips.find(i => i === r.upgd.toUpperCase()) ?? '';
+  // IPS sugerida por territorio (comunidad, pueblo y municipio de los niños que ya están en Nutria)
+  const sugerida = r.ipsSeguimiento ?? sugerencia?.ips ?? '';
   const cerrado = r.estado === 'incorporado';
 
   return (
@@ -46,6 +47,9 @@ function Fila({ r, ips }: { r: Preregistro; ips: string[] }) {
                 <option value="">— IPS de seguimiento —</option>
                 {ips.map(i => <option key={i}>{i}</option>)}
               </select>
+              {!r.ipsSeguimiento && sugerencia && (
+                <span className="w-full text-[11px] text-marca-700" title={sugerencia.motivo}>💡 Sugerida: <b>{sugerencia.ips}</b> · {sugerencia.motivo}</span>
+              )}
               <input name="nota" defaultValue={r.nota ?? ''} placeholder="Nota / motivo" className={`${campo} w-40`} />
               {r.estado !== 'verificado' && <button name="decision" value="verificar" className="boton px-2 py-1 text-xs" disabled={enviando}>Verificar</button>}
               {r.estado === 'verificado' && <button name="decision" value="verificar" className="boton-sec px-2 py-1 text-xs" disabled={enviando}>Actualizar</button>}
@@ -77,7 +81,7 @@ function Fila({ r, ips }: { r: Preregistro; ips: string[] }) {
   );
 }
 
-export function PanelPreregistro({ registros, cargues, ips, onIrCruce }: { registros: Preregistro[]; cargues: Cargue[]; ips: string[]; onIrCruce: () => void }) {
+export function PanelPreregistro({ registros, cargues, ips, sugerencias, onIrCruce }: { registros: Preregistro[]; cargues: Cargue[]; ips: string[]; sugerencias: Record<string, SugerenciaIps>; onIrCruce: () => void }) {
   const [filtro, setFiltro] = useState<EstadoPre | 'todos'>('pendiente');
   const [cargueSel, setCargueSel] = useState('todos');
   const [buscar, setBuscar] = useState('');
@@ -165,7 +169,7 @@ export function PanelPreregistro({ registros, cargues, ips, onIrCruce }: { regis
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {lista.map(r => <Fila key={r.clave} r={r} ips={ips} />)}
+              {lista.map(r => <Fila key={r.clave} r={r} ips={ips} sugerencia={sugerencias[r.clave]} />)}
             </tbody>
           </table>
           {!lista.length && <p className="p-4 text-sm text-slate-500">No hay registros con este filtro.</p>}

@@ -280,3 +280,76 @@ export async function incorporarPre(claves: string[] | 'verificados', por: strin
   });
   return nuevos.length;
 }
+
+export interface SugerenciaIps {
+  ips: string;
+  motivo: string;
+}
+
+/**
+ * IPS sugerida por territorio, según dónde se atienden hoy los niños de Nutria:
+ * 1) misma comunidad/vereda, 2) mismo municipio y pueblo indígena, 3) mismo municipio,
+ * 4) mismo pueblo en el departamento, 5) UPGD si es IPS de la red.
+ */
+export function sugerirIps(registros: Preregistro[], casos: Pick<CasoBase, 'municipio' | 'departamento' | 'asentamiento' | 'etnia' | 'ipsSeguimiento'>[]): Record<string, SugerenciaIps> {
+  const etniaDe = (v: unknown) => norm(v).replace('ARHUACO', 'ARHUACA');
+  const grupos = new Map<string, Map<string, number>>();
+  const sumar = (k: string, ips: string) => {
+    const m = grupos.get(k) ?? new Map<string, number>();
+    m.set(ips, (m.get(ips) ?? 0) + 1);
+    grupos.set(k, m);
+  };
+  const redIps = new Set<string>();
+  for (const c of casos) {
+    if (!c.ipsSeguimiento || c.ipsSeguimiento === 'SIN IPS ASIGNADA') continue;
+    redIps.add(c.ipsSeguimiento);
+    const mpio = `${c.departamento}|${c.municipio}`;
+    if (c.asentamiento) sumar(`A|${mpio}|${norm(c.asentamiento)}`, c.ipsSeguimiento);
+    if (c.etnia) sumar(`E|${mpio}|${etniaDe(c.etnia)}`, c.ipsSeguimiento);
+    if (c.etnia) sumar(`D|${c.departamento}|${etniaDe(c.etnia)}`, c.ipsSeguimiento);
+    sumar(`M|${mpio}`, c.ipsSeguimiento);
+  }
+  const mejor = (k: string) => {
+    const m = grupos.get(k);
+    if (!m) return null;
+    const total = [...m.values()].reduce((a, b) => a + b, 0);
+    const [ips, n] = [...m.entries()].sort((a, b) => b[1] - a[1])[0];
+    return { ips, n, total, pct: Math.round((n / total) * 100) };
+  };
+
+  const salida: Record<string, SugerenciaIps> = {};
+  for (const r of registros) {
+    const d = r.datos;
+    const departamento = departamentoCanonico(r.departamento || d.NomDeptoDistritoResidencia);
+    const municipio = municipioCanonico(r.municipio || d.NomMpioResidencia);
+    const mpio = `${departamento}|${municipio}`;
+    const comunidades = [d.Vereda, d.CentroPoblado, d.BarrioVereda].filter(v => v && !/^SIN DATO$/i.test(v.trim())).map(norm);
+    const etnia = etniaDe(d.NombreGrupoEtnico);
+    const upgd = ipsCanonica(r.upgd || d.NomUPGD);
+
+    let s: SugerenciaIps | null = null;
+    for (const com of comunidades) {
+      const m = mejor(`A|${mpio}|${com}`);
+      if (m) {
+        s = { ips: m.ips, motivo: `Comunidad ${com}: ${m.n} de ${m.total} niños en Nutria (${m.pct}%)` };
+        break;
+      }
+    }
+    if (!s && etnia) {
+      const m = mejor(`E|${mpio}|${etnia}`);
+      if (m) s = { ips: m.ips, motivo: `${etnia} de ${municipio}: ${m.n} de ${m.total} niños (${m.pct}%)` };
+    }
+    if (!s) {
+      const m = mejor(`M|${mpio}`);
+      if (m) s = { ips: m.ips, motivo: `Municipio ${municipio}: ${m.n} de ${m.total} niños (${m.pct}%)` };
+    }
+    if (!s && etnia) {
+      const m = mejor(`D|${departamento}|${etnia}`);
+      if (m) s = { ips: m.ips, motivo: `${etnia} en ${departamento} (sin niños de ${municipio} en Nutria): ${m.n} de ${m.total} (${m.pct}%)` };
+    }
+    if (!s && redIps.has(upgd)) s = { ips: upgd, motivo: 'La UPGD que notificó es IPS de la red' };
+    if (s && redIps.has(upgd) && upgd !== s.ips) s.motivo += ` · notificó ${upgd}`;
+    if (s) salida[r.clave] = s;
+  }
+  return salida;
+}
