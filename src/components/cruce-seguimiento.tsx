@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { clave, leerArchivo, type NinoArchivo } from '@/lib/dnt/cruce';
+import { clave, leerArchivo, sinSeguimiento, type NinoArchivo } from '@/lib/dnt/cruce';
 
 /**
  * Cruce de una base externa de seguimiento DNT (p. ej. el reporte SeguimientoDNT del INS/MinSalud)
@@ -33,6 +33,7 @@ export function CruceSeguimiento() {
   const [filtroAnio, setFiltroAnio] = useState('Todos');
   const [filtroDepto, setFiltroDepto] = useState('Todos');
   const [buscar, setBuscar] = useState('');
+  const [filtroSeg, setFiltroSeg] = useState<'Todos' | 'con' | 'sin'>('Todos');
 
   async function procesar(f: File) {
     setEstado('leyendo');
@@ -70,7 +71,12 @@ export function CruceSeguimiento() {
     const anios = [...new Set(datos.ninos.map(n => anio(n.fecha)))].sort().reverse();
     const deptos = [...new Set(datos.ninos.map(n => n.departamento).filter(Boolean))].sort();
     const porAnio = (l: NinoArchivo[]) => anios.map(a => [a, l.filter(n => anio(n.fecha) === a).length] as const);
-    return { enBase, faltan, coinciden, sobran, anios, deptos, faltanPorAnio: porAnio(faltan), unicosPorAnio: porAnio(datos.ninos) };
+    const sinSeg = datos.ninos.filter(sinSeguimiento);
+    return {
+      enBase, faltan, coinciden, sobran, anios, deptos, sinSeg,
+      filasSinSeg: datos.ninos.reduce((t, n) => t + n.registros - n.seguimientos, 0),
+      faltanPorAnio: porAnio(faltan), unicosPorAnio: porAnio(datos.ninos), sinSegPorAnio: porAnio(sinSeg),
+    };
   }, [datos]);
 
   const filtrar = (l: NinoArchivo[]) => {
@@ -78,12 +84,13 @@ export function CruceSeguimiento() {
     return l
       .filter(n => filtroAnio === 'Todos' || anio(n.fecha) === filtroAnio)
       .filter(n => filtroDepto === 'Todos' || n.departamento === filtroDepto)
+      .filter(n => filtroSeg === 'Todos' || (filtroSeg === 'sin') === sinSeguimiento(n))
       .filter(n => !q || n.clave.includes(q) || clave(n.nombre).includes(q))
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
   };
 
-  const ENC_ARCHIVO = ['Tipo ID', 'Documento', 'Nombre', 'Departamento', 'Municipio', 'UPGD', 'Consulta más reciente', 'Registros en el archivo', 'Estado vital', 'Fuente'];
-  const filaArchivo = (n: NinoArchivo) => [n.tipo, n.documento, n.nombre, n.departamento, n.municipio, n.upgd, dmy(n.fecha), n.registros, n.estadoVital, n.fuente];
+  const ENC_ARCHIVO = ['Tipo ID', 'Documento', 'Nombre', 'Departamento', 'Municipio', 'UPGD', 'Consulta más reciente', 'Registros en el archivo', 'Seguimientos (con clasificación)', 'Última clasificación nutricional', 'Estado vital', 'Fuente'];
+  const filaArchivo = (n: NinoArchivo) => [n.tipo, n.documento, n.nombre, n.departamento, n.municipio, n.upgd, dmy(n.fecha), n.registros, n.seguimientos, n.clasificacion || 'SIN SEGUIMIENTO', n.estadoVital, n.fuente];
 
   return (
     <div className="flex flex-col gap-5">
@@ -104,17 +111,18 @@ export function CruceSeguimiento() {
 
       {datos && r && (
         <>
-          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <section className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {[
               ['Registros en el archivo', datos.totalFilas, 'filas con identificación'],
               ['Niños únicos', datos.ninos.length, 'después de quitar repetidos'],
               ['Ya están en Nutria', r.coinciden.length, `de ${datos.base.length} niños en Nutria`],
               ['Faltan en Nutria', r.faltan.length, 'están en el archivo, no en Nutria'],
               ['Solo en Nutria', r.sobran.length, 'no aparecen en el archivo'],
+              ['Sin seguimiento', r.sinSeg.length, `niños con clasificación nutricional (BF) vacía · ${r.filasSinSeg} registros`],
             ].map(([t, v, d]) => (
               <div key={t} className="tarjeta p-4">
                 <p className="text-xs uppercase text-slate-500">{t}</p>
-                <p className={`text-3xl font-bold ${t === 'Faltan en Nutria' ? 'text-red-600' : 'text-marca-800'}`}>{Number(v).toLocaleString('es-CO')}</p>
+                <p className={`text-3xl font-bold ${t === 'Faltan en Nutria' ? 'text-red-600' : t === 'Sin seguimiento' ? 'text-amber-600' : 'text-marca-800'}`}>{Number(v).toLocaleString('es-CO')}</p>
                 <p className="text-xs text-slate-500">{d}</p>
               </div>
             ))}
@@ -125,14 +133,15 @@ export function CruceSeguimiento() {
               <h2 className="mb-2 font-semibold">Niños únicos por año de la consulta más reciente</h2>
               <table className="w-full text-sm">
                 <thead className="text-left text-xs uppercase text-slate-500">
-                  <tr><th className="pr-4">Año</th><th className="pr-4">Únicos en el archivo</th><th className="pr-4">Ya en Nutria</th><th>Faltan en Nutria</th></tr>
+                  <tr><th className="pr-4">Año</th><th className="pr-4">Únicos en el archivo</th><th className="pr-4">Ya en Nutria</th><th className="pr-4">Faltan en Nutria</th><th>Sin seguimiento</th></tr>
                 </thead>
                 <tbody>
                   {r.unicosPorAnio.map(([a, n], i) => (
                     <tr key={a} onClick={() => setFiltroAnio(a)} title="Ver este año"
                       className={`cursor-pointer border-t border-slate-100 hover:bg-marca-50 ${filtroAnio === a ? 'bg-marca-50 ring-1 ring-inset ring-marca-300' : ''}`}>
                       <td className="py-1 pr-4 font-medium">{a}</td><td className="pr-4">{n}</td><td className="pr-4">{n - r.faltanPorAnio[i][1]}</td>
-                      <td className="font-semibold text-red-600">{r.faltanPorAnio[i][1]}</td>
+                      <td className="pr-4 font-semibold text-red-600">{r.faltanPorAnio[i][1]}</td>
+                      <td className="font-semibold text-amber-600">{r.sinSegPorAnio[i][1]}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -153,14 +162,14 @@ export function CruceSeguimiento() {
                   .map(d => {
                     const l = delAnio.filter(n => (n.departamento || 'Sin departamento') === d);
                     const faltan = l.filter(n => !r.enBase.has(n.clave)).length;
-                    return { d, unicos: l.length, enNutria: l.length - faltan, faltan };
+                    return { d, unicos: l.length, enNutria: l.length - faltan, faltan, sinSeg: l.filter(sinSeguimiento).length };
                   })
                   .sort((a, b) => b.unicos - a.unicos);
-                const total = filas.reduce((s, f) => ({ unicos: s.unicos + f.unicos, enNutria: s.enNutria + f.enNutria, faltan: s.faltan + f.faltan }), { unicos: 0, enNutria: 0, faltan: 0 });
+                const total = filas.reduce((s, f) => ({ unicos: s.unicos + f.unicos, enNutria: s.enNutria + f.enNutria, faltan: s.faltan + f.faltan, sinSeg: s.sinSeg + f.sinSeg }), { unicos: 0, enNutria: 0, faltan: 0, sinSeg: 0 });
                 return (
                   <table className="w-full text-sm">
                     <thead className="text-left text-xs uppercase text-slate-500">
-                      <tr><th className="pr-4">Departamento</th><th className="pr-4">Únicos</th><th className="pr-4">Ya en Nutria</th><th className="pr-4">Faltan</th><th>% cobertura</th></tr>
+                      <tr><th className="pr-4">Departamento</th><th className="pr-4">Únicos</th><th className="pr-4">Ya en Nutria</th><th className="pr-4">Faltan</th><th className="pr-4">Sin seguim.</th><th>% cobertura</th></tr>
                     </thead>
                     <tbody>
                       {filas.map(f => (
@@ -170,6 +179,7 @@ export function CruceSeguimiento() {
                           <td className="pr-4">{f.unicos}</td>
                           <td className="pr-4">{f.enNutria}</td>
                           <td className="pr-4 font-semibold text-red-600">{f.faltan}</td>
+                          <td className="pr-4 font-semibold text-amber-600">{f.sinSeg}</td>
                           <td>
                             <div className="flex items-center gap-2">
                               <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-200">
@@ -183,6 +193,7 @@ export function CruceSeguimiento() {
                       <tr className="border-t-2 border-slate-300 font-semibold">
                         <td className="py-1 pr-4">Total</td><td className="pr-4">{total.unicos}</td><td className="pr-4">{total.enNutria}</td>
                         <td className="pr-4 text-red-600">{total.faltan}</td>
+                        <td className="pr-4 text-amber-600">{total.sinSeg}</td>
                         <td className="text-xs">{total.unicos ? Math.round((total.enNutria / total.unicos) * 100) : 0}%</td>
                       </tr>
                     </tbody>
@@ -212,6 +223,13 @@ export function CruceSeguimiento() {
                     <option>Todos</option>{r.deptos.map(d => <option key={d}>{d}</option>)}
                   </select>
                 </label>
+                <label className="flex items-center gap-2">Seguimiento
+                  <select value={filtroSeg} onChange={e => setFiltroSeg(e.target.value as 'Todos' | 'con' | 'sin')} className="rounded-lg border border-slate-300 px-2 py-1">
+                    <option value="Todos">Todos</option>
+                    <option value="con">Con seguimiento</option>
+                    <option value="sin">Sin seguimiento (clasificación vacía)</option>
+                  </select>
+                </label>
                 <input value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Buscar documento o nombre" className="rounded-lg border border-slate-300 px-3 py-1" />
               </div>
             )}
@@ -238,7 +256,7 @@ export function CruceSeguimiento() {
                         <thead className="sticky top-0 bg-marca-50 text-left text-xs uppercase text-marca-900">
                           <tr>
                             <th className="px-2 py-2">Documento</th><th className="px-2 py-2">Nombre</th><th className="px-2 py-2">Municipio</th>
-                            <th className="px-2 py-2">UPGD</th><th className="px-2 py-2">Consulta más reciente</th><th className="px-2 py-2">Registros</th>
+                            <th className="px-2 py-2">UPGD</th><th className="px-2 py-2">Consulta más reciente</th><th className="px-2 py-2">Registros</th><th className="px-2 py-2">Seguim.</th><th className="px-2 py-2">Última clasificación</th>
                             <th className="px-2 py-2">Estado vital</th>{vista === 'coinciden' && <th className="px-2 py-2">En Nutria</th>}
                           </tr>
                         </thead>
@@ -251,6 +269,10 @@ export function CruceSeguimiento() {
                               <td className="px-2 py-1.5 text-xs">{n.upgd}</td>
                               <td className="px-2 py-1.5 whitespace-nowrap">{dmy(n.fecha)}</td>
                               <td className="px-2 py-1.5 text-center">{n.registros}</td>
+                              <td className="px-2 py-1.5 text-center">{n.seguimientos}</td>
+                              <td className="px-2 py-1.5 text-xs">
+                                {sinSeguimiento(n) ? <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800">Sin seguimiento</span> : n.clasificacion}
+                              </td>
                               <td className={`px-2 py-1.5 ${/FALLEC/i.test(n.estadoVital) ? 'font-semibold text-red-600' : ''}`}>{n.estadoVital || '—'}</td>
                               {vista === 'coinciden' && (
                                 <td className="px-2 py-1.5">

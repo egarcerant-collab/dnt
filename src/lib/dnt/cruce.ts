@@ -15,7 +15,15 @@ export interface NinoArchivo {
   registros: number;
   estadoVital: string;
   fuente: string;
+  /** Registros con clasificación nutricional (columna BF NomClasificacionNutricional): seguimientos reales. */
+  seguimientos: number;
+  /** Clasificación nutricional del seguimiento más reciente. */
+  clasificacion: string;
+  fechaClasificacion: string;
 }
+
+/** Sin seguimiento: todos sus registros tienen vacía la clasificación nutricional (solo notificación). */
+export const sinSeguimiento = (n: NinoArchivo) => n.seguimientos === 0;
 
 export const clave = (v: unknown) => String(v ?? '').trim().toUpperCase().replace(/[^0-9A-Z]/g, '');
 const texto = (v: unknown) => String(v ?? '').trim();
@@ -51,6 +59,7 @@ function columnas(encabezado: unknown[]) {
     fechas: [idx('FechaConsulta'), idx('FechaRegistroCaso'), idx('FechaNotificacion')].filter(i => i >= 0),
     vital: idx('EstadoVital'),
     fuente: idx('Fuente'),
+    clasif: idx('NomClasificacionNutricional', 'ClasificacionNutricional'),
   };
 }
 
@@ -66,6 +75,9 @@ export function leerArchivo(filas: unknown[][]): { ninos: Map<string, NinoArchiv
     totalFilas++;
     const fecha = c.fechas.map(i => fechaISO(f[i])).find(Boolean) ?? '';
     const previo = ninos.get(k);
+    const clasif = c.clasif >= 0 ? texto(f[c.clasif]) : '';
+    // La clasificación vigente es la del seguimiento más reciente que la tenga
+    const usarClasif = !!clasif && (!previo?.clasificacion || fecha >= previo.fechaClasificacion);
     const dato: NinoArchivo = {
       clave: k,
       tipo: c.tipo >= 0 ? texto(f[c.tipo]) : '',
@@ -78,9 +90,13 @@ export function leerArchivo(filas: unknown[][]): { ninos: Map<string, NinoArchiv
       registros: (previo?.registros ?? 0) + 1,
       estadoVital: c.vital >= 0 ? texto(f[c.vital]) : '',
       fuente: c.fuente >= 0 ? texto(f[c.fuente]) : '',
+      seguimientos: (previo?.seguimientos ?? 0) + (clasif ? 1 : 0),
+      clasificacion: usarClasif ? clasif : (previo?.clasificacion ?? ''),
+      fechaClasificacion: usarClasif ? fecha : (previo?.fechaClasificacion ?? ''),
     };
     // Se conserva la información del registro más reciente de cada niño
-    ninos.set(k, previo && previo.fecha > fecha ? { ...previo, registros: dato.registros } : dato);
+    const acumulado = { registros: dato.registros, seguimientos: dato.seguimientos, clasificacion: dato.clasificacion, fechaClasificacion: dato.fechaClasificacion };
+    ninos.set(k, previo && previo.fecha > fecha ? { ...previo, ...acumulado } : dato);
   }
   return { ninos, totalFilas };
 }
