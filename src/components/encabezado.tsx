@@ -30,6 +30,7 @@ export async function Encabezado({ sesion, fechaCorte, almacenamiento }: { sesio
           {esEpsi(sesion.rol) ? <Enlace href="/epsi">Indicadores</Enlace> : <Enlace href="/prestador">Mis niños</Enlace>}
           {esEpsi(sesion.rol) && <Enlace href="/seguimiento">Seguimiento</Enlace>}
           {esEpsi(sesion.rol) && <Enlace href="/informes">Informes PDF</Enlace>}
+          {esEpsi(sesion.rol) && <Enlace href="/cruce">Cruce de bases</Enlace>}
           {esEpsi(sesion.rol) && <Enlace href="/mi-firma">Mi firma</Enlace>}
           <Enlace href="/notificaciones">
             Notificaciones
