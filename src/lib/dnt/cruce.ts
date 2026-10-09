@@ -21,10 +21,13 @@ export interface NinoArchivo {
   /** Clasificación nutricional del seguimiento más reciente. */
   clasificacion: string;
   fechaClasificacion: string;
+  /** Años (por FechaRegistroCaso) de los registros con clasificación nutricional vacía: notificaciones sin seguimiento. */
+  aniosSinSeguimiento: string[];
 }
 
-/** Sin seguimiento: todos sus registros tienen vacía la clasificación nutricional (solo notificación). */
-export const sinSeguimiento = (n: NinoArchivo) => n.seguimientos === 0;
+/** Sin seguimiento: tiene un registro con la clasificación nutricional vacía (solo notificación) en ese año, o en cualquiera. */
+export const sinSeguimiento = (n: NinoArchivo, anio = 'Todos') =>
+  anio === 'Todos' ? n.aniosSinSeguimiento.length > 0 : n.aniosSinSeguimiento.includes(anio);
 
 export const clave = (v: unknown) => String(v ?? '').trim().toUpperCase().replace(/[^0-9A-Z]/g, '');
 const texto = (v: unknown) => String(v ?? '').trim();
@@ -96,9 +99,10 @@ export function leerArchivo(filas: unknown[][]): { ninos: Map<string, NinoArchiv
       seguimientos: (previo?.seguimientos ?? 0) + (clasif ? 1 : 0),
       clasificacion: usarClasif ? clasif : (previo?.clasificacion ?? ''),
       fechaClasificacion: usarClasif ? fecha : (previo?.fechaClasificacion ?? ''),
+      aniosSinSeguimiento: [...new Set([...(previo?.aniosSinSeguimiento ?? []), ...(!clasif && c.clasif >= 0 && fecha ? [fecha.slice(0, 4)] : [])])],
     };
     // Se conserva la información del registro más reciente de cada niño
-    const acumulado = { registros: dato.registros, seguimientos: dato.seguimientos, clasificacion: dato.clasificacion, fechaClasificacion: dato.fechaClasificacion };
+    const acumulado = { registros: dato.registros, seguimientos: dato.seguimientos, clasificacion: dato.clasificacion, fechaClasificacion: dato.fechaClasificacion, aniosSinSeguimiento: dato.aniosSinSeguimiento };
     ninos.set(k, previo && previo.fecha > fecha ? { ...previo, ...acumulado } : dato);
   }
   return { ninos, totalFilas };
