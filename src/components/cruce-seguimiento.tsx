@@ -29,7 +29,7 @@ export function CruceSeguimiento() {
   const [error, setError] = useState('');
   const [archivo, setArchivo] = useState('');
   const [datos, setDatos] = useState<{ ninos: NinoArchivo[]; totalFilas: number; base: CasoBase[] } | null>(null);
-  const [vista, setVista] = useState<'faltan' | 'sobran' | 'coinciden'>('faltan');
+  const [vista, setVista] = useState<'faltan' | 'sobran' | 'coinciden' | 'todos'>('faltan');
   const [filtroAnio, setFiltroAnio] = useState('Todos');
   const [filtroDepto, setFiltroDepto] = useState('Todos');
   const [buscar, setBuscar] = useState('');
@@ -208,7 +208,7 @@ export function CruceSeguimiento() {
 
           <section className="tarjeta flex flex-col gap-3 p-4">
             <div className="flex flex-wrap gap-2">
-              {([['faltan', `Faltan en Nutria (${r.faltan.length})`], ['sobran', `Solo en Nutria (${r.sobran.length})`], ['coinciden', `Coinciden (${r.coinciden.length})`]] as const).map(([k, t]) => (
+              {([['faltan', `Faltan en Nutria (${r.faltan.length})`], ['sobran', `Solo en Nutria (${r.sobran.length})`], ['coinciden', `Coinciden (${r.coinciden.length})`], ['todos', `Todos los del archivo (${datos.ninos.length})`]] as const).map(([k, t]) => (
                 <button key={k} onClick={() => setVista(k)} className={`rounded-full px-4 py-1.5 text-sm ${vista === k ? 'bg-marca-700 text-white' : 'border border-slate-300 hover:bg-slate-50'}`}>{t}</button>
               ))}
             </div>
@@ -242,14 +242,15 @@ export function CruceSeguimiento() {
                 r.sobran.map(c => [c.tipo, c.documento, c.nombre, c.departamento, c.municipio, c.ips, dmy(c.notificacion)]))} />
             ) : (
               (() => {
-                const lista = filtrar(vista === 'faltan' ? r.faltan : r.coinciden);
+                const lista = filtrar(vista === 'faltan' ? r.faltan : vista === 'coinciden' ? r.coinciden : datos.ninos);
+                const conNutria = vista !== 'faltan';
                 return (
                   <>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm text-slate-600"><b>{lista.length}</b> niños con los filtros actuales</p>
-                      <button className="boton-sec" onClick={() => descargarCsv(`${vista === 'faltan' ? 'faltan_en_nutria' : 'coinciden'}_${filtroAnio}_${new Date().toISOString().slice(0, 10)}.csv`,
-                        vista === 'coinciden' ? [...ENC_ARCHIVO, 'IPS en Nutria'] : ENC_ARCHIVO,
-                        lista.map(n => (vista === 'coinciden' ? [...filaArchivo(n), r.enBase.get(n.clave)?.ips ?? ''] : filaArchivo(n))))}>
+                      <button className="boton-sec" onClick={() => descargarCsv(`${vista === 'faltan' ? 'faltan_en_nutria' : vista === 'coinciden' ? 'coinciden' : 'todos_archivo'}_${filtroAnio}_${new Date().toISOString().slice(0, 10)}.csv`,
+                        conNutria ? [...ENC_ARCHIVO, 'Está en Nutria', 'IPS en Nutria'] : ENC_ARCHIVO,
+                        lista.map(n => (conNutria ? [...filaArchivo(n), r.enBase.has(n.clave) ? 'SI' : 'NO', r.enBase.get(n.clave)?.ips ?? ''] : filaArchivo(n))))}>
                         Descargar Excel (CSV)
                       </button>
                     </div>
@@ -259,7 +260,7 @@ export function CruceSeguimiento() {
                           <tr>
                             <th className="px-2 py-2">Documento</th><th className="px-2 py-2">Nombre</th><th className="px-2 py-2">Municipio</th>
                             <th className="px-2 py-2">UPGD</th><th className="px-2 py-2">Fecha más reciente</th><th className="px-2 py-2">Registros</th><th className="px-2 py-2">Seguim.</th><th className="px-2 py-2">Última clasificación</th>
-                            <th className="px-2 py-2">Estado vital</th>{vista === 'coinciden' && <th className="px-2 py-2">En Nutria</th>}
+                            <th className="px-2 py-2">Estado vital</th>{conNutria && <th className="px-2 py-2">En Nutria</th>}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -273,15 +274,21 @@ export function CruceSeguimiento() {
                               <td className="px-2 py-1.5 text-center">{n.registros}</td>
                               <td className="px-2 py-1.5 text-center">{n.seguimientos}</td>
                               <td className="px-2 py-1.5 text-xs">
-                                {n.seguimientos === 0 ? <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800">Sin seguimiento</span> : n.clasificacion}
-                                {n.seguimientos > 0 && n.aniosSinSeguimiento.length > 0 && (
-                                  <span className="block text-[11px] text-amber-700">Notificación sin seguimiento {n.aniosSinSeguimiento.join(', ')}</span>
+                                {sinSeguimiento(n, filtroAnio) && (
+                                  <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800">
+                                    Sin seguimiento {n.aniosSinSeguimiento.join(', ')}
+                                  </span>
                                 )}
+                                {n.clasificacion && <span className="block">{sinSeguimiento(n, filtroAnio) ? `Otro registro: ${n.clasificacion}` : n.clasificacion}</span>}
                               </td>
                               <td className={`px-2 py-1.5 ${/FALLEC/i.test(n.estadoVital) ? 'font-semibold text-red-600' : ''}`}>{n.estadoVital || '—'}</td>
-                              {vista === 'coinciden' && (
+                              {conNutria && (
                                 <td className="px-2 py-1.5">
-                                  <Link className="text-marca-700 hover:underline" href={`/caso/${encodeURIComponent(r.enBase.get(n.clave)!.id)}`}>Ver caso</Link>
+                                  {r.enBase.has(n.clave) ? (
+                                    <Link className="text-marca-700 hover:underline" href={`/caso/${encodeURIComponent(r.enBase.get(n.clave)!.id)}`}>Ver caso</Link>
+                                  ) : (
+                                    <span className="text-xs font-semibold text-red-600">No está</span>
+                                  )}
                                 </td>
                               )}
                             </tr>
