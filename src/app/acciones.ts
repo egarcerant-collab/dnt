@@ -134,6 +134,8 @@ export async function accionGuardarContacto(_prev: EstadoAccion, form: FormData)
         whatsapp: String(form.get('whatsapp') ?? ''),
         telefono: String(form.get('telefono') ?? ''),
         autoriza: form.get('autoriza') === 'on',
+        nit: String(form.get('nit') ?? ''),
+        dv: String(form.get('dv') ?? ''),
       },
       s.nombre,
     );

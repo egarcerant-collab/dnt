@@ -136,9 +136,34 @@ async function guardar(ips: string, cambio: (p: Prestador) => void) {
   });
 }
 
-export async function guardarContactoPrestador(ips: string, datos: Parameters<typeof validarContacto>[0], por: string) {
+/** Dígito de verificación del NIT (algoritmo DIAN, módulo 11). */
+export function digitoVerificacion(nit: string): string {
+  const pesos = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];
+  const suma = [...nit].reverse().reduce((t, d, i) => t + Number(d) * pesos[i], 0) % 11;
+  return String(suma >= 2 ? 11 - suma : suma);
+}
+
+export function validarNit(nit: string, dv: string): { nit: string; dv: string } {
+  const n = soloDigitos(nit);
+  const d = soloDigitos(dv);
+  if (!/^d{6,10}$/.test(n)) throw new Error('El NIT debe tener entre 6 y 10 dígitos, sin puntos ni dígito de verificación');
+  if (!/^d$/.test(d)) throw new Error('Escribe el dígito de verificación del NIT (un solo número)');
+  if (digitoVerificacion(n) !== d) throw new Error('El dígito de verificación no corresponde al NIT. Revísalo en el RUT de la IPS');
+  return { nit: n, dv: d };
+}
+
+export async function guardarContactoPrestador(
+  ips: string,
+  datos: Parameters<typeof validarContacto>[0] & { nit?: string; dv?: string },
+  por: string,
+) {
   const c = validarContacto(datos);
-  await guardar(ips, p => (p.contacto = { ...c, registradoPor: por, registradoEn: new Date().toISOString() }));
+  const nit = validarNit(datos.nit ?? '', datos.dv ?? '');
+  await guardar(ips, p => {
+    p.contacto = { ...c, registradoPor: por, registradoEn: new Date().toISOString() };
+    // El NIT declarado por la IPS queda registrado; el administrador lo puede corregir y confirmar
+    if (p.nit !== nit.nit || p.dv !== nit.dv) Object.assign(p, nit, { nitConfirmado: false });
+  });
 }
 
 export async function establecerClavePrestador(ips: string, nueva: string) {
@@ -169,5 +194,7 @@ export async function actualizarPrestador(ips: string, cambios: { nit?: string; 
 /** El prestador debe completar el pre-registro (contacto) antes de usar el módulo. */
 export async function faltaPreregistro(ips: string | undefined): Promise<boolean> {
   if (!ips) return false;
-  return !(await listarPrestadores()).find(x => x.ips === ips)?.contacto;
+  const p = (await listarPrestadores()).find(x => x.ips === ips);
+  // El pre-registro está completo cuando hay contacto (correo y WhatsApp) y NIT con dígito de verificación
+  return !p?.contacto || !p.nit || !p.dv;
 }

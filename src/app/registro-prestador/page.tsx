@@ -25,12 +25,12 @@ export default async function RegistroPrestador({ searchParams }: { searchParams
           <p className="text-sm text-white/85">{ips}</p>
         </div>
         <div className="flex flex-col gap-4 px-6 py-6">
-          {!p.contacto && sesion.rol === 'prestador' && (
+          {(!p.contacto || !p.nit || !p.dv) && sesion.rol === 'prestador' && (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              Antes de ingresar al módulo, registra el responsable y los medios de contacto de tu IPS. Es necesario para recibir notificaciones e informes de la EPSI.
+              Antes de ingresar al módulo, registra el NIT con su dígito de verificación, el responsable, un correo y un WhatsApp de tu IPS. Es necesario para recibir notificaciones e informes de la EPSI.
             </p>
           )}
-          <FormContacto ips={ips} inicial={p.contacto} esAdmin={sesion.rol === 'admin'} />
+          <FormContacto ips={ips} inicial={p.contacto} esAdmin={sesion.rol === 'admin'} nit={p.nit} dv={p.dv} />
           <Link href={sesion.rol === 'admin' ? '/admin' : '/prestador'} className="text-center text-sm text-marca-700 hover:underline">
             {sesion.rol === 'admin' ? '← Volver a Administración' : p.contacto ? '← Volver a mis niños' : ''}
           </Link>

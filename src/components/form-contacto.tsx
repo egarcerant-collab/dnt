@@ -6,12 +6,24 @@ import { accionGuardarContacto } from '@/app/acciones';
 export interface ContactoVista { responsable: string; cargo: string; correos: string[]; whatsapp: string; telefono?: string }
 
 /** Pre-registro de la IPS: responsable y medios de contacto para notificaciones. */
-export function FormContacto({ ips, inicial, esAdmin }: { ips: string; inicial?: ContactoVista; esAdmin: boolean }) {
+export function FormContacto({ ips, inicial, esAdmin, nit, dv }: { ips: string; inicial?: ContactoVista; esAdmin: boolean; nit: string; dv: string }) {
   const [estado, accion, pendiente] = useActionState(accionGuardarContacto, null);
   return (
     <form action={accion} className="flex flex-col gap-4">
       {esAdmin && <input type="hidden" name="ips" value={ips} />}
       <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex gap-2 sm:col-span-2">
+          <label className="flex flex-1 flex-col gap-1 text-sm font-medium">
+            NIT de la IPS *
+            <input name="nit" required inputMode="numeric" pattern="[0-9]{6,10}" maxLength={10} defaultValue={nit} className="input" placeholder="824001398" />
+            <span className="text-xs font-normal text-slate-500">Solo números, sin puntos ni guion.</span>
+          </label>
+          <label className="flex w-28 flex-col gap-1 text-sm font-medium">
+            DV *
+            <input name="dv" required inputMode="numeric" pattern="[0-9]" maxLength={1} defaultValue={dv} className="input text-center" placeholder="1" />
+            <span className="text-xs font-normal text-slate-500">Dígito de verificación</span>
+          </label>
+        </div>
         <label className="flex flex-col gap-1 text-sm font-medium">
           Responsable del seguimiento DNT *
           <input name="responsable" required minLength={5} maxLength={100} defaultValue={inicial?.responsable} className="input" placeholder="Nombre completo" />
