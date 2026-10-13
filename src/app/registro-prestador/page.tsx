@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 export default async function RegistroPrestador({ searchParams }: { searchParams: Promise<{ ips?: string }> }) {
   const sesion = await getSesion();
   if (!sesion) redirect('/');
+  if (sesion.debeCambiarClave) redirect('/cambiar-clave');
   if (sesion.rol !== 'prestador' && sesion.rol !== 'admin') redirect('/epsi');
   const ips = sesion.rol === 'prestador' ? sesion.ips! : (await searchParams).ips;
   if (!ips) redirect('/admin');

@@ -131,7 +131,7 @@ export function FormIngreso({ prestadores, error, pestanaInicial }: { prestadore
               {prestadores.map(i => <option key={i} value={i}>{i}</option>)}
             </select>
           </label>
-          <CampoPassword etiqueta="Contraseña" ayuda="La contraseña es el NIT de la IPS (con o sin dígito de verificación)." />
+          <CampoPassword etiqueta="Contraseña" ayuda="Primer ingreso: 123456. El sistema te pedirá crear tu contraseña personal." />
           <Boton texto="Ingresar como prestador" />
         </form>
       )}

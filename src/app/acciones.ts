@@ -42,7 +42,7 @@ export async function iniciarSesion(form: FormData) {
   redirect(rutaInicio(u.rol));
 }
 
-/** Prestadores: eligen su IPS y entran con el NIT, o con su contraseña personal si la crearon. */
+/** Prestadores: eligen su IPS y entran con la clave inicial (123456) o con su contraseña personal. */
 export async function iniciarSesionPrestador(form: FormData) {
   const ips = String(form.get('ips') ?? '');
   const password = String(form.get('password') ?? '');
@@ -58,9 +58,10 @@ export async function iniciarSesionPrestador(form: FormData) {
     rol: 'prestador',
     nombre: r.prestador.ips,
     ips: r.prestador.ips,
-    usaNit: r.debeCambiarClave,
+    // Con la clave inicial se obliga a crear la contraseña personal antes de continuar
+    debeCambiarClave: r.debeCambiarClave || undefined,
   });
-  redirect('/prestador');
+  redirect(r.debeCambiarClave ? '/cambiar-clave' : '/prestador');
 }
 
 export async function accionCambiarClavePrestador(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
@@ -235,7 +236,7 @@ export async function accionActualizarPrestador(_prev: EstadoAccion, form: FormD
       restablecer,
     });
     revalidatePath('/admin');
-    return { ok: true, mensaje: restablecer ? 'Acceso restablecido: vuelve a entrar con el NIT.' : 'Prestador actualizado.' };
+    return { ok: true, mensaje: restablecer ? 'Acceso restablecido: la contraseña vuelve a 123456 y deberá cambiarla al entrar.' : 'Prestador actualizado.' };
   } catch (e) {
     return { ok: false, mensaje: (e as Error).message };
   }

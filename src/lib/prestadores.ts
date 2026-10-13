@@ -6,14 +6,16 @@ import { estaBloqueado, hashPassword, limpiarIntentos, registrarFallo, verificar
 
 /**
  * Cuenta de acceso de cada prestador (una por IPS de seguimiento).
- * - Primer ingreso: la contraseña es el NIT (con o sin dígito de verificación).
- * - El NIT es público, por eso en ese primer ingreso se obliga a crear una contraseña personal.
+ * - Primer ingreso (o tras restablecer el acceso): contraseña inicial 123456 (PRESTADOR_CLAVE_INICIAL).
+ * - Es una clave conocida: en ese ingreso se OBLIGA a crear una contraseña personal antes de ver cualquier dato.
  */
+export const CLAVE_INICIAL = process.env.PRESTADOR_CLAVE_INICIAL || '123456';
+
 export interface Prestador {
   ips: string;
   nit: string; // sin dígito de verificación
   dv: string;
-  hash?: string; // contraseña personal; si no existe, se acepta el NIT
+  hash?: string; // contraseña personal; si no existe, se acepta la clave inicial
   activo: boolean;
   nitConfirmado: boolean; // false si el NIT se tomó automáticamente de SIVIGILA
   actualizadoEn: string;
@@ -119,9 +121,7 @@ export async function autenticarPrestador(ips: string, password: string): Promis
     limpiarIntentos(clave);
     return { ok: true, prestador: p, debeCambiarClave: false };
   }
-  if (!p.nit) return { ok: false, motivo: 'sin-nit' };
-  const ingresado = soloDigitos(password);
-  if (ingresado !== p.nit && ingresado !== p.nit + p.dv) return registrarFallo(clave), { ok: false, motivo: 'credenciales' };
+  if (password.trim() !== CLAVE_INICIAL) return registrarFallo(clave), { ok: false, motivo: 'credenciales' };
   limpiarIntentos(clave);
   return { ok: true, prestador: p, debeCambiarClave: true };
 }
@@ -144,13 +144,14 @@ export async function guardarContactoPrestador(ips: string, datos: Parameters<ty
 export async function establecerClavePrestador(ips: string, nueva: string) {
   if (nueva.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres');
   const p = (await listarPrestadores()).find(x => x.ips === ips);
+  if (nueva.trim() === CLAVE_INICIAL || /^(d)+$|^(0?123456789?|12345678)$/.test(nueva.trim())) throw new Error('Elige una contraseña distinta a la inicial y que no sea una secuencia');
   if (p && soloDigitos(nueva).length >= 6 && [p.nit, p.nit + p.dv].includes(soloDigitos(nueva))) {
     throw new Error('La nueva contraseña no puede ser el NIT');
   }
   await guardar(ips, x => (x.hash = hashPassword(nueva)));
 }
 
-/** Administrador: corrige el NIT, activa/desactiva o restablece el acceso (vuelve a usar el NIT). */
+/** Administrador: corrige el NIT, activa/desactiva o restablece el acceso (vuelve a la clave inicial 123456). */
 export async function actualizarPrestador(ips: string, cambios: { nit?: string; activo?: boolean; restablecer?: boolean }) {
   await guardar(ips, p => {
     if (cambios.nit !== undefined) {

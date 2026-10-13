@@ -24,14 +24,14 @@ function Fila({ p }: { p: PrestadorFila }) {
           <button className="boton-sec" disabled={pendiente}>Guardar</button>
         </form>
         {!p.nit ? (
-          <span className="text-xs font-semibold text-red-600">Sin NIT: no puede ingresar</span>
+          <span className="text-xs text-amber-700">Sin NIT registrado</span>
         ) : !p.nitConfirmado ? (
           <span className="text-xs text-amber-700">Tomado de SIVIGILA · verificar con el RUT</span>
         ) : (
           <span className="text-xs text-marca-700">Confirmado</span>
         )}
       </td>
-      <td className="px-3 py-2 text-xs">{p.tieneClave ? 'Contraseña personal' : 'Entra con el NIT'}</td>
+      <td className="px-3 py-2 text-xs">{p.tieneClave ? 'Contraseña personal' : 'Clave inicial 123456 (debe cambiarla)'}</td>
       <td className="max-w-sm px-3 py-2">
         <AccionesContactoIps ips={p.ips} contacto={p.contacto} textoWhatsApp={p.textoWhatsApp} />
         <a href={`/registro-prestador?ips=${encodeURIComponent(p.ips)}`} className="mt-1 inline-block text-xs text-marca-700 hover:underline">{p.contacto ? 'Editar contacto' : 'Registrar contacto'}</a>
@@ -47,7 +47,7 @@ function Fila({ p }: { p: PrestadorFila }) {
             <form action={accion}>
               <input type="hidden" name="ips" value={p.ips} />
               <input type="hidden" name="restablecer" value="true" />
-              <button className="boton-sec" disabled={pendiente} title="El prestador vuelve a entrar con el NIT y crea una nueva contraseña">Restablecer acceso</button>
+              <button className="boton-sec" disabled={pendiente} title="La contraseña vuelve a 123456 y el prestador debe crear una nueva al entrar">Restablecer acceso</button>
             </form>
           )}
         </div>
@@ -64,8 +64,8 @@ export function TablaPrestadores({ prestadores, correo }: { prestadores: Prestad
       <div className="border-b border-slate-100 p-4">
         <h2 className="font-semibold">Prestadores ({prestadores.length})</h2>
         <p className="text-sm text-slate-500">
-          Cada IPS elige su nombre en la lista y entra con su NIT. En el primer ingreso debe completar el pre-registro (responsable, correos y WhatsApp).
-          {sinNit > 0 && <b className="text-red-600"> {sinNit} sin NIT registrado.</b>}{' '}
+          Cada IPS elige su nombre en la lista y entra la primera vez con la contraseña 123456; en ese ingreso se le obliga a crear su contraseña personal. En el primer ingreso debe completar el pre-registro (responsable, correos y WhatsApp).
+          {sinNit > 0 && <b className="text-amber-700"> {sinNit} sin NIT registrado (pueden ingresar igual).</b>}{' '}
           <b>{prestadores.filter(p => p.contacto).length} de {prestadores.length}</b> con pre-registro.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
