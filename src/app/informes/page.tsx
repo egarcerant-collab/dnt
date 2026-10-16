@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { accionQuitarFirma } from '@/app/acciones';
 import { Encabezado } from '@/components/encabezado';
 import { FormFirma } from '@/components/form-firma';
+import { FormInforme } from '@/components/form-informe';
 import { firmantesDisponibles } from '@/lib/firmas';
 import { obtenerBase } from '@/lib/dnt/repositorio';
 import { esEpsi, getSesion } from '@/lib/sesion';
@@ -21,6 +22,15 @@ export default async function Informes({ searchParams }: { searchParams: Promise
   const ips = [...conteo.keys()].filter(Boolean).sort();
   const propia = firmantes.find(f => f.id === sesion.id);
   const u = usuarios.find(x => x.id === sesion.id);
+  // Departamento → municipios con número de niños, para el informe territorial
+  const territorios: Record<string, { municipio: string; casos: number }[]> = {};
+  const porMuni = new Map<string, number>();
+  base.casos.forEach(c => porMuni.set(`${c.departamento}|${c.municipio}`, (porMuni.get(`${c.departamento}|${c.municipio}`) ?? 0) + 1));
+  porMuni.forEach((n, k) => {
+    const [d, m] = k.split('|');
+    if (d && m) (territorios[d] ??= []).push({ municipio: m, casos: n });
+  });
+  Object.values(territorios).forEach(l => l.sort((a, b) => b.casos - a.casos));
 
   const pestanas = [
     ['informe', '1. Generar informe PDF', 'Oficio A4 con membrete y firmas'],
@@ -56,32 +66,11 @@ export default async function Informes({ searchParams }: { searchParams: Promise
                 <Link href="/informes?vista=firma" className="font-semibold underline">Regístrala en la vista 2. Mi firma</Link> para que aparezca en tus informes.
               </p>
             )}
-            <form action="/api/informes/pdf" method="get" target="_blank" className="tarjeta flex flex-col gap-5 p-5">
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="font-medium">Informe para</span>
-                <select name="ips" className="rounded-lg border border-slate-300 px-3 py-2">
-                  <option value="">Consolidado de la red (todas las IPS)</option>
-                  {ips.map(i => <option key={i} value={i}>{i} ({conteo.get(i)} niños)</option>)}
-                </select>
-                <span className="text-xs text-slate-500">
-                  El informe de una IPS incluye el listado nominal de niños que requieren gestión. El consolidado trae cifras por IPS y pueblo × departamento.
-                </span>
-              </label>
-              <fieldset className="flex flex-col gap-2 text-sm">
-                <legend className="mb-1 font-medium">Firmas al final del informe (máximo 3)</legend>
-                {firmantes.length === 0 && <p className="text-slate-500">No hay firmas disponibles. El informe saldrá con la línea de firma en blanco.</p>}
-                {firmantes.map(f => (
-                  <label key={f.id} className="flex items-center gap-2">
-                    <input type="checkbox" name="firmante" value={f.id} defaultChecked={f.id === sesion.id} />
-                    <span><b>{f.nombre}</b> · {f.firma.cargo}{f.id === sesion.id ? ' (tú)' : ''}</span>
-                  </label>
-                ))}
-              </fieldset>
-              <button className="boton w-fit">Generar PDF</button>
-              <p className="text-xs text-slate-500">
-                Cada informe generado queda registrado en la auditoría (usuario, fecha, IPS y firmas). Contiene datos de menores: compártalo solo por canales institucionales.
-              </p>
-            </form>
+            <FormInforme
+              ips={ips.map(i => ({ nombre: i, casos: conteo.get(i) ?? 0 }))}
+              territorios={territorios}
+              firmantes={firmantes.map(f => ({ id: f.id, nombre: f.nombre, cargo: f.firma.cargo, propia: f.id === sesion.id }))}
+            />
           </>
         ) : (
           <>

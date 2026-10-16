@@ -230,8 +230,13 @@ function conteoSemaforo(filas: FilaTraza[]) {
 }
 
 export interface OpcionesInforme {
-  /** IPS del informe; sin IPS se genera el consolidado de toda la red. */
+  /** IPS del informe; sin IPS ni departamento se genera el consolidado de toda la red. */
   ips?: string;
+  /** Informe territorial: departamento y, opcionalmente, algunos de sus municipios. */
+  depto?: string;
+  municipios?: string[];
+  /** Incluir el listado nominal de niños que requieren gestión (siempre en el informe de IPS). */
+  nominal?: boolean;
   firmantes: Firmante[];
   generadoPor: string;
 }
@@ -240,23 +245,37 @@ export async function generarInformePdf(o: OpcionesInforme): Promise<{ pdf: Uint
   const [base, historias, mensajes] = await Promise.all([obtenerBase(), listarHistorias(), listarMensajes()]);
   const { filas: todas } = construirTraza(base.casos, historias, mensajes);
   const porCaso = new Map(base.casos.map(c => [c.id, c]));
-  const filas = o.ips ? todas.filter(f => f.ips === o.ips) : todas;
+  const tipo: 'ips' | 'territorio' | 'red' = o.ips ? 'ips' : o.depto ? 'territorio' : 'red';
+  const munis = (o.municipios ?? []).filter(Boolean);
+  const filas = todas.filter(f => {
+    if (tipo === 'ips') return f.ips === o.ips;
+    if (tipo === 'red') return true;
+    const c = porCaso.get(f.id)!;
+    return c.departamento === o.depto && (!munis.length || munis.includes(c.municipio));
+  });
+  const territorio =
+    tipo === 'territorio'
+      ? `DEPARTAMENTO DE ${o.depto}${munis.length ? ` · ${munis.length === 1 ? 'MUNICIPIO' : 'MUNICIPIOS'}: ${munis.join(', ')}` : ' (TODOS LOS MUNICIPIOS)'}`
+      : '';
+  const nominal = tipo === 'ips' || (tipo === 'territorio' && !!o.nominal);
   const nCtrl = (f: FilaTraza) => porCaso.get(f.id)!.controles.length;
-  if (o.ips && !filas.length) throw new Error('La IPS no tiene niños en la base actual');
+  if (tipo !== 'red' && !filas.length) throw new Error(tipo === 'ips' ? 'La IPS no tiene niños en la base actual' : 'No hay niños en ese departamento / municipio(s)');
 
   const h = ahoraColombia();
   const consecutivo = `NUT-${h.y}${h.m}${h.d}-${h.hh}${h.mm}`;
-  const doc = await Documento.crear(`Informe de seguimiento DNT ${o.ips ?? 'Red de prestadores'}`);
+  const doc = await Documento.crear(`Informe de seguimiento DNT ${o.ips ?? (territorio || 'Red de prestadores')}`);
 
   doc.texto('INFORME DE SEGUIMIENTO', { size: 13, negrita: true, alineacion: 'centro', despues: 2 });
   doc.texto(`No: ${consecutivo}`, { negrita: true, alineacion: 'der', despues: 8 });
   doc.texto(`VALLEDUPAR, ${Number(h.d)} DE ${MESES[Number(h.m) - 1]} DE ${h.y}`, { negrita: true, despues: 10 });
   doc.campo('DE:', 'RUTA DE ALTERACIONES NUTRICIONALES - DUSAKAWI EPSI');
-  doc.campo('PARA:', o.ips ?? 'RED DE PRESTADORES ADSCRITA A DUSAKAWI EPSI');
+  doc.campo('PARA:', o.ips ?? (tipo === 'territorio' ? `RED DE PRESTADORES Y ACTORES DEL TERRITORIO · ${territorio}` : 'RED DE PRESTADORES ADSCRITA A DUSAKAWI EPSI'));
   doc.campo('ASUNTO:', `ESTADO DEL SEGUIMIENTO DE NIÑOS Y NIÑAS CON DESNUTRICIÓN AGUDA (CORTE ${fecha(base.fechaCorte)}).`, 12);
   doc.texto('Cordial saludo.', { despues: 8 });
   doc.texto(
-    o.ips
+    tipo === 'territorio'
+      ? `En cumplimiento del lineamiento para el manejo integrado de la desnutrición aguda moderada y severa (Resolución 2350 de 2020), se presenta el estado del seguimiento de los niños y niñas con desnutrición aguda del ${territorio.toLowerCase()}, por municipio, IPS y pueblo indígena, con base en la información registrada en Nutria.`
+      : o.ips
       ? 'En cumplimiento del lineamiento para el manejo integrado de la desnutrición aguda moderada y severa (Resolución 2350 de 2020) y de lo pactado en la Ruta de Alteraciones Nutricionales, se presenta el estado del seguimiento de los niños y niñas asignados a su IPS, con base en la información registrada en Nutria.'
       : 'En cumplimiento del lineamiento para el manejo integrado de la desnutrición aguda moderada y severa (Resolución 2350 de 2020), se presenta el consolidado del seguimiento de los niños y niñas con desnutrición aguda por IPS, con base en la información registrada en Nutria.',
     { despues: 10 },
@@ -284,42 +303,20 @@ export async function generarInformePdf(o: OpcionesInforme): Promise<{ pdf: Uint
   doc.texto('2. Estado actual (semaforización)', { negrita: true, despues: 4 });
   doc.tabla([{ titulo: 'Estado', ancho: 3 }, { titulo: 'Niños', ancho: 1 }, { titulo: '%', ancho: 1 }], conteoSemaforo(filas), 9);
 
-  if (o.ips) {
-    const gestion = filas
-      .map(f => ({ f, c: porCaso.get(f.id)!, p: pendientesDe(porCaso.get(f.id)!, f) }))
-      .filter(x => x.p && !['FALLECIDO', 'DESCARTADO'].includes(x.c.estado))
-      .sort((a, b) => a.c.municipio.localeCompare(b.c.municipio) || a.c.nombre.localeCompare(b.c.nombre));
-    doc.texto(`3. Niños y niñas que requieren gestión (${gestion.length})`, { negrita: true, despues: 4 });
-    if (gestion.length) {
-      doc.tabla(
-        [
-          { titulo: 'N°', ancho: 0.5 }, { titulo: 'Municipio', ancho: 1.4 }, { titulo: 'Documento', ancho: 1.5 }, { titulo: 'Nombre', ancho: 2.4 },
-          { titulo: 'Estado', ancho: 1.5 }, { titulo: 'Contr.', ancho: 0.7 }, { titulo: 'Último control', ancho: 1.1 }, { titulo: 'Pendiente', ancho: 3 },
-        ],
-        gestion.map((x, i) => {
-          const s = SEMAFORO[x.f.semaforo];
-          return {
-            celdas: [String(i + 1), x.c.municipio, `${x.c.tipoDocumento} ${x.c.documento}`, x.c.nombre, s.etiqueta, String(x.c.controles.length), fecha(x.f.ultimoControl), x.p],
-            colores: [null, null, null, null, s.color, null, null, null],
-          };
-        }),
-        7.5,
-      );
-    } else doc.texto('No hay niños con gestiones pendientes.', { despues: 8 });
-  } else {
-    const porIps = new Map<string, FilaTraza[]>();
-    filas.forEach(f => porIps.set(f.ips, [...(porIps.get(f.ips) ?? []), f]));
-    doc.texto('3. Seguimiento por IPS', { negrita: true, despues: 4 });
+  // Tabla de seguimiento agrupada (por IPS o por municipio)
+  const tablaSeguimiento = (titulo: string, clave: (f: FilaTraza) => string) => {
+    const grupos = new Map<string, FilaTraza[]>();
+    filas.forEach(f => grupos.set(clave(f), [...(grupos.get(clave(f)) ?? []), f]));
     doc.tabla(
       [
-        { titulo: 'IPS', ancho: 3.2 }, { titulo: 'Niños', ancho: 0.8 }, { titulo: 'Activos', ancho: 0.9 }, { titulo: 'Sin controles', ancho: 1 },
+        { titulo, ancho: 3.2 }, { titulo: 'Niños', ancho: 0.8 }, { titulo: 'Activos', ancho: 0.9 }, { titulo: 'Sin controles', ancho: 1 },
         { titulo: 'Sin control > 4 sem.', ancho: 1.1 }, { titulo: 'Control vencido', ancho: 1 }, { titulo: 'Controles sin HC', ancho: 1 }, { titulo: 'Diligen.', ancho: 0.9 },
       ],
-      [...porIps.entries()]
+      [...grupos.entries()]
         .sort((a, b) => b[1].length - a[1].length)
-        .map(([ips, grupo]) => ({
+        .map(([nombre, grupo]) => ({
           celdas: [
-            ips,
+            nombre,
             String(grupo.length),
             String(grupo.filter(f => !CERRADOS.includes(porCaso.get(f.id)!.estado)).length),
             String(grupo.filter(f => nCtrl(f) === 0).length),
@@ -331,6 +328,44 @@ export async function generarInformePdf(o: OpcionesInforme): Promise<{ pdf: Uint
         })),
       7.5,
     );
+  };
+
+  // Listado nominal de niños que requieren gestión (con columna IPS cuando el informe abarca varias)
+  const listadoGestion = (titulo: string) => {
+    const gestion = filas
+      .map(f => ({ f, c: porCaso.get(f.id)!, p: pendientesDe(porCaso.get(f.id)!, f) }))
+      .filter(x => x.p && !['FALLECIDO', 'DESCARTADO'].includes(x.c.estado))
+      .sort((a, b) => a.c.municipio.localeCompare(b.c.municipio) || a.c.nombre.localeCompare(b.c.nombre));
+    doc.texto(`${titulo} (${gestion.length})`, { negrita: true, despues: 4 });
+    if (!gestion.length) return doc.texto('No hay niños con gestiones pendientes.', { despues: 8 });
+    const conIps = tipo !== 'ips';
+    doc.tabla(
+      [
+        { titulo: 'N°', ancho: 0.5 }, { titulo: 'Municipio', ancho: 1.3 }, ...(conIps ? [{ titulo: 'IPS', ancho: 1.4 }] : []), { titulo: 'Documento', ancho: 1.4 },
+        { titulo: 'Nombre', ancho: 2.2 }, { titulo: 'Estado', ancho: 1.3 }, { titulo: 'Contr.', ancho: 0.6 }, { titulo: 'Último control', ancho: 1 }, { titulo: 'Pendiente', ancho: 2.6 },
+      ],
+      gestion.map((x, k) => {
+        const sm = SEMAFORO[x.f.semaforo];
+        return {
+          celdas: [String(k + 1), x.c.municipio, ...(conIps ? [x.c.ipsSeguimiento] : []), `${x.c.tipoDocumento} ${x.c.documento}`, x.c.nombre, sm.etiqueta, String(x.c.controles.length), fecha(x.f.ultimoControl), x.p],
+          colores: [null, null, ...(conIps ? [null] : []), null, null, sm.color, null, null, null],
+        };
+      }),
+      7,
+    );
+  };
+
+  if (tipo === 'ips') {
+    listadoGestion('3. Niños y niñas que requieren gestión');
+  } else if (tipo === 'territorio') {
+    doc.texto('3. Seguimiento por municipio', { negrita: true, despues: 4 });
+    tablaSeguimiento('Municipio', f => porCaso.get(f.id)!.municipio || 'SIN DATO');
+    doc.texto('3.1 Seguimiento por IPS', { negrita: true, size: 9, despues: 3 });
+    tablaSeguimiento('IPS', f => f.ips);
+    if (nominal) listadoGestion('3.2 Niños y niñas que requieren gestión');
+  } else {
+    doc.texto('3. Seguimiento por IPS', { negrita: true, despues: 4 });
+    tablaSeguimiento('IPS', f => f.ips);
   }
 
   // 4. Distribución poblacional (mismo cálculo que la vista de indicadores)
@@ -348,25 +383,28 @@ export async function generarInformePdf(o: OpcionesInforme): Promise<{ pdf: Uint
   doc.tabla(columnasDist('Pueblo indígena'), filasDist('etnia'), 7.5);
   const sinEtnia = casosGrupo.filter(c => etniaDe(c) === 'SIN ETNIA REGISTRADA').length;
   if (sinEtnia) doc.texto(`Nota: ${sinEtnia} niño(s) sin pueblo indígena registrado; se recomienda completar el dato para el análisis diferencial.`, { size: 7.5, color: GRIS, despues: 6 });
-  doc.texto(o.ips ? '4.2 Por municipio de residencia' : '4.2 Por departamento de residencia', { negrita: true, size: 9, despues: 3 });
-  doc.tabla(columnasDist(o.ips ? 'Municipio' : 'Departamento'), filasDist(o.ips ? 'municipio' : 'departamento'), 7.5);
-  if (!o.ips) {
-    const x = cruce(casosGrupo, 'etnia', 'departamento');
-    doc.texto('4.3 Pueblo indígena por departamento (casos)', { negrita: true, size: 9, despues: 3 });
+  let sub = 2;
+  const porDepto = tipo === 'red';
+  doc.texto(`4.${sub++} ${porDepto ? 'Por departamento de residencia' : 'Por municipio de residencia'}`, { negrita: true, size: 9, despues: 3 });
+  doc.tabla(columnasDist(porDepto ? 'Departamento' : 'Municipio'), filasDist(porDepto ? 'departamento' : 'municipio'), 7.5);
+  // Cruce pueblo × territorio: departamentos en la red, municipios en el informe territorial (si caben en la hoja)
+  const columnaCruce: Dimension | null = porDepto ? 'departamento' : tipo === 'territorio' ? 'municipio' : null;
+  const x = columnaCruce ? cruce(casosGrupo, 'etnia', columnaCruce) : null;
+  if (x && x.columnas.length > 1 && x.columnas.length <= 7) {
+    doc.texto(`4.${sub++} Pueblo indígena por ${porDepto ? 'departamento' : 'municipio'} (casos)`, { negrita: true, size: 9, despues: 3 });
     doc.tabla(
-      [{ titulo: 'Pueblo indígena', ancho: 2.6 }, ...x.columnas.map(c => ({ titulo: c, ancho: 1 })), { titulo: 'Total', ancho: 0.8 }],
-      [...x.filas.map(f => ({ celdas: [f.grupo, ...f.valores.map(String), String(f.total)] })), { celdas: ['TOTAL', ...x.totales.map(String), String(x.totales.reduce((a, b) => a + b, 0))] }],
+      [{ titulo: 'Pueblo indígena', ancho: 2.6 }, ...x.columnas.map(c => ({ titulo: c.replace(/ \(.*\)$/, ''), ancho: 1 })), { titulo: 'Total', ancho: 0.8 }],
+      [...x.filas.map(f => ({ celdas: [f.grupo, ...f.valores.map(String), String(f.total)] })), { celdas: ['TOTAL', ...x.totales.map(String), String(x.totales.reduce((p, q) => p + q, 0))] }],
       7.5,
     );
   }
-  const n = o.ips ? 3 : 4;
-  doc.texto(`4.${n} Por clasificación nutricional`, { negrita: true, size: 9, despues: 3 });
+  doc.texto(`4.${sub++} Por clasificación nutricional`, { negrita: true, size: 9, despues: 3 });
   doc.tabla(columnasDist('Clasificación nutricional'), filasDist('clasificacion'), 7.5);
-  doc.texto(`4.${n + 1} Por sexo y grupo de edad`, { negrita: true, size: 9, despues: 3 });
+  doc.texto(`4.${sub++} Por sexo y grupo de edad`, { negrita: true, size: 9, despues: 3 });
   doc.tabla(columnasDist('Sexo'), filasDist('sexo'), 7.5);
   doc.tabla(columnasDist('Grupo de edad'), filasDist('edad'), 7.5);
 
-  if (o.ips) {
+  if (nominal) {
     doc.texto(
       'Se solicita gestionar los pendientes relacionados y registrar los controles y las historias clínicas en Nutria. En caso de búsqueda fallida, esta debe soportarse con el formato correspondiente debidamente diligenciado.',
       { antes: 2, despues: 8 },
@@ -380,6 +418,6 @@ export async function generarInformePdf(o: OpcionesInforme): Promise<{ pdf: Uint
     antes: 4,
   });
 
-  const sufijo = (o.ips ?? 'RED').normalize('NFD').replace(/[^\w]+/g, '_').replace(/^_|_$/g, '').slice(0, 50);
+  const sufijo = (o.ips ?? (tipo === 'territorio' ? [o.depto, ...munis].join('_') : 'RED')).normalize('NFD').replace(/[^\w]+/g, '_').replace(/^_|_$/g, '').slice(0, 50);
   return { pdf: await doc.terminar(), nombre: `Informe_DNT_${sufijo}_${h.y}${h.m}${h.d}.pdf`, casos: filas.length };
 }
