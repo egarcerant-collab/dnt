@@ -184,15 +184,17 @@ function completitud(casos: Caso[]): [string, number][] {
   ];
 }
 
-interface FilaGrupo { nombre: string; total: number; ceroControles: number; totalControles: number; recuperacion: number | null; oportunidad: number | null; sinControl: number; sinEstado: number }
+interface Porcentaje { valor: number | null; num: number; den: number; formula: string }
+interface FilaGrupo { nombre: string; total: number; ceroControles: number; totalControles: number; recuperacion: Porcentaje; oportunidad: Porcentaje; sinControl: number; sinEstado: number }
 
 function resumenPorGrupo(casos: Caso[], k: (c: Caso) => string): FilaGrupo[] {
   const grupos = new Map<string, Caso[]>();
   casos.forEach(c => grupos.set(k(c), [...(grupos.get(k(c)) ?? []), c]));
   return [...grupos.entries()]
     .map(([nombre, cs]) => {
-      const ind = Object.fromEntries(calcularIndicadores(cs).map(i => [i.clave, i.valor]));
-      return { nombre, total: cs.length, ceroControles: cs.filter(c => c.controles.length === 0).length, totalControles: cs.reduce((n, c) => n + c.controles.length, 0), recuperacion: ind.recuperacion, oportunidad: ind.oportunidad, sinControl: ind.sinControl ?? 0, sinEstado: ind.sinEstado ?? 0 };
+      const ind = Object.fromEntries(calcularIndicadores(cs).map(i => [i.clave, i]));
+      const porc = (i: Indicador): Porcentaje => ({ valor: i.valor, num: i.num ?? 0, den: i.den ?? 0, formula: i.formula ?? '' });
+      return { nombre, total: cs.length, ceroControles: cs.filter(c => c.controles.length === 0).length, totalControles: cs.reduce((n, c) => n + c.controles.length, 0), recuperacion: porc(ind.recuperacion), oportunidad: porc(ind.oportunidad), sinControl: ind.sinControl.valor ?? 0, sinEstado: ind.sinEstado.valor ?? 0 };
     })
     .sort((a, b) => b.total - a.total);
 }
@@ -211,6 +213,11 @@ function TarjetaIndicador({ i }: { i: Indicador }) {
         <span className="ml-1 text-base font-medium text-slate-500">{i.unidad === '%' ? '%' : i.unidad === 'días' ? 'días' : ''}</span>
       </p>
       <p className="text-xs text-slate-500">Meta {i.meta} · {i.detalle}</p>
+      {i.den != null && (
+        <p className="mt-1 text-xs text-slate-600" title={i.formula}>
+          <b>{i.num}</b> / <b>{i.den}</b> <span className="text-slate-400">(numerador / denominador)</span>
+        </p>
+      )}
     </div>
   );
 }
@@ -260,9 +267,23 @@ function BotonExportar({ href }: { href: string }) {
   );
 }
 
+/** Porcentaje con numerador/denominador visibles al pasar el mouse (o al tocar en celular). */
+function ConFraccion({ p, meta }: { p: Porcentaje; meta: number }) {
+  return (
+    <span tabIndex={0} className="group relative inline-block cursor-help outline-none">
+      <span className={`font-semibold underline decoration-dotted underline-offset-4 ${(p.valor ?? 0) >= meta ? 'text-marca-700' : 'text-red-600'}`}>{p.valor}%</span>
+      <span role="tooltip" className="pointer-events-none absolute right-0 top-full z-20 mt-1 hidden w-72 rounded-lg bg-slate-900 p-3 text-left text-xs font-normal text-white shadow-lg group-hover:block group-focus:block">
+        <span className="block text-base font-bold">{p.num} / {p.den} = {p.valor}%</span>
+        <span className="mt-1 block"><b>Numerador:</b> {p.num}</span>
+        <span className="block"><b>Denominador:</b> {p.den}</span>
+        <span className="mt-1 block text-slate-300">{p.formula}</span>
+      </span>
+    </span>
+  );
+}
+
 function TablaGrupos({ titulo, filas }: { titulo: string; filas: FilaGrupo[] }) {
-  const celda = (v: number | null, meta: number) =>
-    v == null ? <span className="text-slate-400">—</span> : <span className={v >= meta ? 'font-semibold text-marca-700' : 'font-semibold text-red-600'}>{v}%</span>;
+  const celda = (p: Porcentaje, meta: number) => (p.valor == null ? <span className="text-slate-400">—</span> : <ConFraccion p={p} meta={meta} />);
   return (
     <section className="tarjeta overflow-x-auto">
       <h3 className="border-b border-slate-100 p-4 font-semibold">{titulo}</h3>

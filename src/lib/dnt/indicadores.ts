@@ -8,6 +8,10 @@ export interface Indicador {
   meta: string;
   cumple: boolean | null;
   detalle: string;
+  /** Para los porcentajes: numerador, denominador y su definición (se muestran al pasar el mouse). */
+  num?: number;
+  den?: number;
+  formula?: string;
 }
 
 const diasEntre = (a: string | null, b: string | null) =>
@@ -53,14 +57,14 @@ export function calcularIndicadores(casos: Caso[]): Indicador[] {
   const sinControl = cuenta(c => c.alertas.includes('SIN_CONTROL_4_SEMANAS'));
 
   return [
-    { clave: 'recuperacion', nombre: 'Recuperación', valor: vRec, unidad: '%', meta: '≥ 75%', cumple: vRec == null ? null : vRec >= 75, detalle: `${recuperados} de ${n} casos` },
-    { clave: 'letalidad', nombre: 'Letalidad', valor: vLet, unidad: '%', meta: '< 1%', cumple: vLet == null ? null : vLet < 1, detalle: `${fallecidos} fallecidos` },
-    { clave: 'oportunidad', nombre: 'Oportunidad 1er control', valor: vOp, unidad: '%', meta: '≥ 90%', cumple: vOp == null ? null : vOp >= 90, detalle: 'Día 3 severa · día 7 moderada' },
+    { clave: 'recuperacion', nombre: 'Recuperación', valor: vRec, unidad: '%', meta: '≥ 75%', cumple: vRec == null ? null : vRec >= 75, detalle: `${recuperados} de ${n} casos`, num: recuperados, den: n, formula: 'Niños con estado RECUPERADO / niños de la base (sin descartados)' },
+    { clave: 'letalidad', nombre: 'Letalidad', valor: vLet, unidad: '%', meta: '< 1%', cumple: vLet == null ? null : vLet < 1, detalle: `${fallecidos} fallecidos`, num: fallecidos, den: n, formula: 'Niños FALLECIDOS / niños de la base (sin descartados)' },
+    { clave: 'oportunidad', nombre: 'Oportunidad 1er control', valor: vOp, unidad: '%', meta: '≥ 90%', cumple: vOp == null ? null : vOp >= 90, detalle: `${oportunos} de ${n} · día 3 severa, día 7 moderada`, num: oportunos, den: n, formula: 'Niños con 1er control a tiempo (≤3 días severa, ≤7 días moderada desde la notificación) / niños de la base (sin descartados)' },
     { clave: 'sinControl', nombre: 'Sin control > 4 semanas', valor: sinControl, unidad: 'casos', meta: '0', cumple: sinControl === 0, detalle: 'Requieren búsqueda activa' },
     { clave: 'sinEstado', nombre: 'Sin estado diligenciado', valor: sinEstado, unidad: 'casos', meta: '0', cumple: sinEstado === 0, detalle: `${pct(sinEstado, n)}% de la base` },
     { clave: 'tiempoRecuperacion', nombre: 'Días a recuperación (mediana)', valor: tMediana, unidad: 'días', meta: '≤ 60', cumple: tMediana == null ? null : tMediana <= 60, detalle: `${tRecup.length} casos con fecha` },
-    { clave: 'perdidas', nombre: 'Deserción / búsqueda fallida', valor: vPer, unidad: '%', meta: '≤ 15%', cumple: vPer == null ? null : vPer <= 15, detalle: `${perdidos} casos` },
-    { clave: 'completitud', nombre: 'Completitud crítica', valor: vComp, unidad: '%', meta: '≥ 95%', cumple: vComp == null ? null : vComp >= 95, detalle: 'Estado, clasificación, PB, MIPRES' },
+    { clave: 'perdidas', nombre: 'Deserción / búsqueda fallida', valor: vPer, unidad: '%', meta: '≤ 15%', cumple: vPer == null ? null : vPer <= 15, detalle: `${perdidos} casos`, num: perdidos, den: n, formula: 'Niños DESERTADOS o con BÚSQUEDA FALLIDA / niños de la base (sin descartados)' },
+    { clave: 'completitud', nombre: 'Completitud crítica', valor: vComp, unidad: '%', meta: '≥ 95%', cumple: vComp == null ? null : vComp >= 95, detalle: `${completos} de ${n} · estado, clasificación, PB, MIPRES`, num: completos, den: n, formula: 'Niños con estado, clasificación nutricional, perímetro braquial y MIPRES diligenciados / niños de la base (sin descartados)' },
   ];
 }
 
