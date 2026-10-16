@@ -8,6 +8,8 @@ import { listarMensajes } from './mensajes';
 import { obtenerBase } from './repositorio';
 import { ORDEN_SEMAFORO, SEMAFORO, type ClaveSemaforo } from './semaforo';
 import { construirTraza, type FilaTraza } from './traza';
+import { cruce, distribucion, type Dimension } from './distribucion';
+import { etniaDe } from './filtros';
 import { ALERTAS, type Caso } from './types';
 
 /**
@@ -304,10 +306,6 @@ export async function generarInformePdf(o: OpcionesInforme): Promise<{ pdf: Uint
         7.5,
       );
     } else doc.texto('No hay niños con gestiones pendientes.', { despues: 8 });
-    doc.texto(
-      'Se solicita gestionar los pendientes relacionados y registrar los controles y las historias clínicas en Nutria. En caso de búsqueda fallida, esta debe soportarse con el formato correspondiente debidamente diligenciado.',
-      { antes: 2, despues: 8 },
-    );
   } else {
     const porIps = new Map<string, FilaTraza[]>();
     filas.forEach(f => porIps.set(f.ips, [...(porIps.get(f.ips) ?? []), f]));
@@ -332,6 +330,46 @@ export async function generarInformePdf(o: OpcionesInforme): Promise<{ pdf: Uint
           ],
         })),
       7.5,
+    );
+  }
+
+  // 4. Distribución poblacional (mismo cálculo que la vista de indicadores)
+  const casosGrupo = filas.map(f => porCaso.get(f.id)!);
+  const columnasDist = (titulo: string) => [
+    { titulo, ancho: 2.6 }, { titulo: 'Casos', ancho: 0.8 }, { titulo: '%', ancho: 0.7 }, { titulo: 'Activos', ancho: 0.8 }, { titulo: 'Recup.', ancho: 0.8 },
+    { titulo: 'Recuperación (rec./casos)', ancho: 1.5 }, { titulo: 'Severos', ancho: 0.8 }, { titulo: 'Sin control > 4 sem.', ancho: 1 }, { titulo: 'Sin estado', ancho: 0.8 },
+  ];
+  const filasDist = (dim: Dimension) =>
+    distribucion(casosGrupo, dim).map(d => ({
+      celdas: [d.grupo, String(d.casos), `${d.pctTotal}%`, String(d.activos), String(d.recuperados), d.recPct == null ? '-' : `${d.recPct}% (${d.recNum}/${d.recDen})`, String(d.severos), String(d.sinControl), String(d.sinEstado)],
+    }));
+  doc.texto('4. Distribución poblacional', { negrita: true, antes: 4, despues: 4 });
+  doc.texto('4.1 Por pueblo indígena', { negrita: true, size: 9, despues: 3 });
+  doc.tabla(columnasDist('Pueblo indígena'), filasDist('etnia'), 7.5);
+  const sinEtnia = casosGrupo.filter(c => etniaDe(c) === 'SIN ETNIA REGISTRADA').length;
+  if (sinEtnia) doc.texto(`Nota: ${sinEtnia} niño(s) sin pueblo indígena registrado; se recomienda completar el dato para el análisis diferencial.`, { size: 7.5, color: GRIS, despues: 6 });
+  doc.texto(o.ips ? '4.2 Por municipio de residencia' : '4.2 Por departamento de residencia', { negrita: true, size: 9, despues: 3 });
+  doc.tabla(columnasDist(o.ips ? 'Municipio' : 'Departamento'), filasDist(o.ips ? 'municipio' : 'departamento'), 7.5);
+  if (!o.ips) {
+    const x = cruce(casosGrupo, 'etnia', 'departamento');
+    doc.texto('4.3 Pueblo indígena por departamento (casos)', { negrita: true, size: 9, despues: 3 });
+    doc.tabla(
+      [{ titulo: 'Pueblo indígena', ancho: 2.6 }, ...x.columnas.map(c => ({ titulo: c, ancho: 1 })), { titulo: 'Total', ancho: 0.8 }],
+      [...x.filas.map(f => ({ celdas: [f.grupo, ...f.valores.map(String), String(f.total)] })), { celdas: ['TOTAL', ...x.totales.map(String), String(x.totales.reduce((a, b) => a + b, 0))] }],
+      7.5,
+    );
+  }
+  const n = o.ips ? 3 : 4;
+  doc.texto(`4.${n} Por clasificación nutricional`, { negrita: true, size: 9, despues: 3 });
+  doc.tabla(columnasDist('Clasificación nutricional'), filasDist('clasificacion'), 7.5);
+  doc.texto(`4.${n + 1} Por sexo y grupo de edad`, { negrita: true, size: 9, despues: 3 });
+  doc.tabla(columnasDist('Sexo'), filasDist('sexo'), 7.5);
+  doc.tabla(columnasDist('Grupo de edad'), filasDist('edad'), 7.5);
+
+  if (o.ips) {
+    doc.texto(
+      'Se solicita gestionar los pendientes relacionados y registrar los controles y las historias clínicas en Nutria. En caso de búsqueda fallida, esta debe soportarse con el formato correspondiente debidamente diligenciado.',
+      { antes: 2, despues: 8 },
     );
   }
 

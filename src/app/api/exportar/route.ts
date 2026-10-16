@@ -5,7 +5,7 @@ import { getStore } from '@/lib/dnt/store';
 import { ALERTAS } from '@/lib/dnt/types';
 import { esEpsi, getSesion } from '@/lib/sesion';
 
-const CLAVES: (keyof FiltrosCasos)[] = ['depto', 'municipio', 'ips', 'estado', 'clasificacion', 'alerta', 'edad', 'semaforo', 'controles'];
+const CLAVES: (keyof FiltrosCasos)[] = ['depto', 'municipio', 'ips', 'estado', 'clasificacion', 'alerta', 'edad', 'semaforo', 'controles', 'etnia', 'sexo'];
 const ARCHIVO_AUDITORIA = 'auditoria-exportaciones.json';
 
 export async function GET(req: Request) {

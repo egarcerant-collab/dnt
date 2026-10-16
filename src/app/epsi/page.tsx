@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Encabezado } from '@/components/encabezado';
 import { FiltrosCascada } from '@/components/filtros-cascada';
+import { PanelDistribucion } from '@/components/panel-distribucion';
+import { DIMENSIONES, cruce, distribucion, type Dimension } from '@/lib/dnt/distribucion';
 import { AlertaChip, EstadoBadge, LeyendaSemaforo, SeveridadBadge, formatoFecha } from '@/components/ui';
 import { calcularIndicadores, contarAlertas, type Indicador } from '@/lib/dnt/indicadores';
 import { GRUPOS_CONTROLES, aQueryString, filtrarCasos, grupoControles, grupoEdad, semaforoCaso, ultimoZ } from '@/lib/dnt/filtros';
@@ -106,6 +108,14 @@ export default async function VistaEpsi({ searchParams }: { searchParams: Promis
             </div>
           </section>
         </div>
+
+        <PanelDistribucion
+          total={casos.length}
+          datos={Object.fromEntries((Object.keys(DIMENSIONES) as Dimension[]).map(d => [d, distribucion(casos, d)])) as Record<Dimension, ReturnType<typeof distribucion>>}
+          cruce={cruce(casos, 'etnia', 'departamento')}
+          filtros={Object.fromEntries((Object.keys(DIMENSIONES) as Dimension[]).filter(d => DIMENSIONES[d].filtro).map(d => [d, DIMENSIONES[d].filtro!]))}
+          exportarBase={urlExportar()}
+        />
 
         <ControlesPorNino casos={casos} urlExportar={urlExportar} />
 
