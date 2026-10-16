@@ -57,13 +57,6 @@ export function PanelPrestador({ filas: todas, fechaCorte }: { filas: FilaCaso[]
     );
   }, [pestana, q, filas, fechaCorte, semaforo]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const tarjetas = [
-    { t: 'Mis niños', v: filas.length, s: municipio ? `Sede ${municipio}` : 'Asignados a la IPS' },
-    { t: 'Activos', v: activos.length, s: 'En tratamiento o sin estado' },
-    { t: 'Atención prioritaria', v: prioridad.length, s: 'Sin control o control vencido', alerta: prioridad.length > 0 },
-    { t: 'Recuperados', v: filas.filter(f => f.estado === 'RECUPERADO').length, s: 'Egresos exitosos' },
-  ];
-
   return (
     <div className="flex flex-col gap-6">
       {sedes.length > 1 && (
@@ -82,42 +75,36 @@ export function PanelPrestador({ filas: todas, fechaCorte }: { filas: FilaCaso[]
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {tarjetas.map(k => (
-          <div key={k.t} className={`tarjeta p-4 ${k.alerta ? 'border-red-200 bg-red-50' : ''}`}>
-            <p className="etiqueta">{k.t}</p>
-            <p className={`mt-1 text-3xl font-bold ${k.alerta ? 'text-red-700' : 'text-slate-900'}`}>{k.v}</p>
-            <p className="text-xs text-slate-500">{k.s}</p>
-          </div>
-        ))}
+      {/* Tarjetas: total y semaforización del estado actual (clic para filtrar la lista) */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <button onClick={() => setSemaforo('')} aria-pressed={!semaforo}
+          className={`tarjeta p-4 text-left ${!semaforo ? 'ring-2 ring-marca-600' : 'hover:shadow'}`}>
+          <p className="etiqueta">Mis niños</p>
+          <p className="mt-1 text-3xl font-bold text-slate-900">{filas.length}</p>
+          <p className="text-xs text-slate-500">{municipio ? `Sede ${municipio}` : 'Asignados a la IPS'}</p>
+        </button>
+        {ORDEN_SEMAFORO.filter(k => conteoSem[k]).map(k => {
+          const sem = SEMAFORO[k];
+          return (
+            <button key={k} onClick={() => setSemaforo(semaforo === k ? '' : k)} aria-pressed={semaforo === k}
+              className={`tarjeta p-4 text-left ${semaforo === k ? 'ring-2 ring-marca-600' : 'hover:shadow'}`}
+              style={{ borderTop: `6px solid ${sem.color}` }}>
+              <p className="etiqueta">{sem.etiqueta}</p>
+              <p className="mt-1 text-3xl font-bold text-slate-900">{conteoSem[k]}</p>
+              <p className="text-xs text-slate-500">
+                {k === 'EN_TRATAMIENTO'
+                  ? `${enTrat.length - tratSinEstado - tratRiesgo} con estado registrado · ${tratSinEstado} sin estado diligenciado${tratRiesgo ? ` · ${tratRiesgo} recuperados en riesgo` : ''}`
+                  : k === 'RECUPERADO' ? 'Egresos exitosos' : k === 'SIN_TRATAMIENTO' ? 'Búsqueda, desertado u hospitalizado' : sem.descripcion.split('.')[0]}
+              </p>
+            </button>
+          );
+        })}
       </div>
-
-      <div className="tarjeta flex flex-col gap-3 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="etiqueta">Estado actual (semáforo) · clic para filtrar</p>
-          {semaforo && <button onClick={() => setSemaforo('')} className="text-xs text-marca-700 hover:underline">Quitar filtro</button>}
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {ORDEN_SEMAFORO.filter(k => conteoSem[k]).map(k => {
-            const sem = SEMAFORO[k];
-            return (
-              <button key={k} onClick={() => setSemaforo(semaforo === k ? '' : k)} aria-pressed={semaforo === k}
-                className={`flex items-center justify-between gap-3 rounded-lg border p-3 text-left ${semaforo === k ? 'ring-2 ring-marca-600' : 'hover:shadow'}`}
-                style={{ borderLeft: `6px solid ${sem.color}` }}>
-                <span className="text-sm">
-                  <b>{sem.etiqueta}</b>
-                  {k === 'EN_TRATAMIENTO' && (
-                    <span className="block text-xs text-slate-600">
-                      {enTrat.length - tratSinEstado - tratRiesgo} con estado registrado · {tratSinEstado} sin estado diligenciado{tratRiesgo ? ` · ${tratRiesgo} recuperados en riesgo` : ''}
-                    </span>
-                  )}
-                </span>
-                <span className="rounded-full px-3 py-1 text-lg font-bold" style={{ background: sem.color, color: sem.texto }}>{conteoSem[k]}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {semaforo && (
+        <p className="-mt-3 text-sm text-slate-600">
+          Lista filtrada por <b>{SEMAFORO[semaforo].etiqueta}</b>. <button onClick={() => setSemaforo('')} className="text-marca-700 underline">Ver todos</button>
+        </p>
+      )}
 
       <div className="tarjeta">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-3">
