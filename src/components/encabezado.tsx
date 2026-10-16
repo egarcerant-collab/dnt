@@ -29,9 +29,8 @@ export async function Encabezado({ sesion, fechaCorte, almacenamiento }: { sesio
         <nav className="flex flex-wrap items-center gap-1 text-sm">
           {esEpsi(sesion.rol) ? <Enlace href="/epsi">Indicadores</Enlace> : <Enlace href="/prestador">Mis niños</Enlace>}
           {esEpsi(sesion.rol) && <Enlace href="/seguimiento">Seguimiento</Enlace>}
-          {esEpsi(sesion.rol) && <Enlace href="/informes">Informes PDF</Enlace>}
+          {esEpsi(sesion.rol) && <Enlace href="/informes">Informes y firma</Enlace>}
           {esEpsi(sesion.rol) && <Enlace href="/cruce">Cruce y pre-registro</Enlace>}
-          {esEpsi(sesion.rol) && <Enlace href="/mi-firma">Mi firma</Enlace>}
           <Enlace href="/notificaciones">
             Notificaciones
             {pendientes > 0 && (
