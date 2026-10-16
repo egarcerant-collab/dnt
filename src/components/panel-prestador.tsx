@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import type { FilaCaso } from '@/lib/dnt/filas';
+import { ORDEN_SEMAFORO, SEMAFORO, semaforoDe, type ClaveSemaforo } from '@/lib/dnt/semaforo';
 import { ALERTAS } from '@/lib/dnt/types';
 import { AlertaChip, EstadoBadge, SeveridadBadge, formatoFecha } from './ui';
 
@@ -17,6 +18,7 @@ export function PanelPrestador({ filas: todas, fechaCorte }: { filas: FilaCaso[]
   const [pestana, setPestana] = useState<Pestana>('prioridad');
   const [q, setQ] = useState('');
   const [municipio, setMunicipio] = useState('');
+  const [semaforo, setSemaforo] = useState<ClaveSemaforo | ''>('');
 
   // Sedes (municipios) donde la IPS tiene niños, con su número de casos
   const sedes = useMemo(() => {
@@ -30,10 +32,21 @@ export function PanelPrestador({ filas: todas, fechaCorte }: { filas: FilaCaso[]
   );
 
   const activos = filas.filter(f => !CERRADOS.includes(f.estado));
+  const claveDe = (f: FilaCaso) => semaforoDe(f.estado, f.ultimoZ).clave;
+  const conteoSem = useMemo(() => {
+    const c = {} as Record<ClaveSemaforo, number>;
+    filas.forEach(f => (c[claveDe(f)] = (c[claveDe(f)] ?? 0) + 1));
+    return c;
+  }, [filas]); // eslint-disable-line react-hooks/exhaustive-deps
+  // En tratamiento: con estado registrado vs. asumidos por no tener estado diligenciado
+  const enTrat = filas.filter(f => claveDe(f) === 'EN_TRATAMIENTO');
+  const tratSinEstado = enTrat.filter(f => f.estado === 'SIN DILIGENCIAR').length;
+  const tratRiesgo = enTrat.filter(f => f.estado === 'RECUPERADO').length;
   const prioridad = filas.filter(esAlta);
 
   const visibles = useMemo(() => {
-    const base = pestana === 'prioridad' ? prioridad : pestana === 'activos' ? activos : filas;
+    const porPestana = pestana === 'prioridad' ? prioridad : pestana === 'activos' ? activos : filas;
+    const base = semaforo ? filas.filter(f => claveDe(f) === semaforo) : porPestana;
     const t = q.trim().toUpperCase();
     const filtradas = t ? base.filter(f => f.nombre.toUpperCase().includes(t) || f.documento.includes(t) || f.municipio.includes(t)) : base;
     // Severos y con más días sin control primero
@@ -42,7 +55,7 @@ export function PanelPrestador({ filas: todas, fechaCorte }: { filas: FilaCaso[]
         Number(b.severidad === 'SEVERA') - Number(a.severidad === 'SEVERA') ||
         (diasDesde(b.ultimoControl ?? b.fechaNotificacion, fechaCorte) ?? 0) - (diasDesde(a.ultimoControl ?? a.fechaNotificacion, fechaCorte) ?? 0),
     );
-  }, [pestana, q, filas, fechaCorte]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pestana, q, filas, fechaCorte, semaforo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tarjetas = [
     { t: 'Mis niños', v: filas.length, s: municipio ? `Sede ${municipio}` : 'Asignados a la IPS' },
@@ -77,6 +90,33 @@ export function PanelPrestador({ filas: todas, fechaCorte }: { filas: FilaCaso[]
             <p className="text-xs text-slate-500">{k.s}</p>
           </div>
         ))}
+      </div>
+
+      <div className="tarjeta flex flex-col gap-3 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="etiqueta">Estado actual (semáforo) · clic para filtrar</p>
+          {semaforo && <button onClick={() => setSemaforo('')} className="text-xs text-marca-700 hover:underline">Quitar filtro</button>}
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {ORDEN_SEMAFORO.filter(k => conteoSem[k]).map(k => {
+            const sem = SEMAFORO[k];
+            return (
+              <button key={k} onClick={() => setSemaforo(semaforo === k ? '' : k)} aria-pressed={semaforo === k}
+                className={`flex items-center justify-between gap-3 rounded-lg border p-3 text-left ${semaforo === k ? 'ring-2 ring-marca-600' : 'hover:shadow'}`}
+                style={{ borderLeft: `6px solid ${sem.color}` }}>
+                <span className="text-sm">
+                  <b>{sem.etiqueta}</b>
+                  {k === 'EN_TRATAMIENTO' && (
+                    <span className="block text-xs text-slate-600">
+                      {enTrat.length - tratSinEstado - tratRiesgo} con estado registrado · {tratSinEstado} sin estado diligenciado{tratRiesgo ? ` · ${tratRiesgo} recuperados en riesgo` : ''}
+                    </span>
+                  )}
+                </span>
+                <span className="rounded-full px-3 py-1 text-lg font-bold" style={{ background: sem.color, color: sem.texto }}>{conteoSem[k]}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="tarjeta">
