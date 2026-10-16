@@ -270,8 +270,9 @@ function BotonExportar({ href }: { href: string }) {
 /** Porcentaje con numerador/denominador visibles al pasar el mouse (o al tocar en celular). */
 function ConFraccion({ p, meta }: { p: Porcentaje; meta: number }) {
   return (
-    <span tabIndex={0} className="group relative inline-block cursor-help outline-none">
+    <span tabIndex={0} title={`${p.num} / ${p.den} · ${p.formula}`} className="group relative inline-block cursor-help text-right outline-none">
       <span className={`font-semibold underline decoration-dotted underline-offset-4 ${(p.valor ?? 0) >= meta ? 'text-marca-700' : 'text-red-600'}`}>{p.valor}%</span>
+      <span className="block text-[11px] font-normal text-slate-500">{p.num} / {p.den}</span>
       <span role="tooltip" className="pointer-events-none absolute right-0 top-full z-20 mt-1 hidden w-72 rounded-lg bg-slate-900 p-3 text-left text-xs font-normal text-white shadow-lg group-hover:block group-focus:block">
         <span className="block text-base font-bold">{p.num} / {p.den} = {p.valor}%</span>
         <span className="mt-1 block"><b>Numerador:</b> {p.num}</span>
