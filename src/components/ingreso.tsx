@@ -73,7 +73,7 @@ function FormRegistro() {
   );
 }
 
-export function FormIngreso({ prestadores, error, pestanaInicial }: { prestadores: string[]; error?: string; pestanaInicial?: Pestana }) {
+export function FormIngreso({ prestadores, error, pestanaInicial }: { prestadores: { ips: string; nombre: string }[]; error?: string; pestanaInicial?: Pestana }) {
   const [pestana, setPestana] = useState<Pestana>(pestanaInicial ?? 'epsi');
 
   return (
@@ -128,7 +128,7 @@ export function FormIngreso({ prestadores, error, pestanaInicial }: { prestadore
             Prestador (IPS)
             <select name="ips" required defaultValue="" className="input">
               <option value="" disabled>Selecciona tu IPS…</option>
-              {prestadores.map(i => <option key={i} value={i}>{i}</option>)}
+              {prestadores.map(p => <option key={p.ips} value={p.ips}>{p.nombre}</option>)}
             </select>
           </label>
           <CampoPassword etiqueta="Contraseña" ayuda="Primer ingreso: 123456. El sistema te pedirá crear tu contraseña personal." />

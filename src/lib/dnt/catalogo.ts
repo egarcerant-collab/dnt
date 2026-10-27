@@ -48,6 +48,8 @@ const IPS: Array<[RegExp, string]> = [
   [/^WAYUUANASHI/, 'WAYUU ANASHI IPS'],
   [/^WAYUUTALATSHI/, 'WAYUU TALATSHI IPS'],
   [/^WINTUKWA/, 'WINTUKWA IPS'],
+  [/^(GRUPO)?IMB/, 'GRUPO IMB'],
+  [/^(FUNDACION)?SUMA/, 'FUNDACION SUMA'],
 ];
 
 const MUNICIPIOS: Record<string, string> = {

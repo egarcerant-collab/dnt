@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { NOMBRE_PRESTADOR, type PrestadorRed } from '@/lib/dnt/asignacion';
 import { FormIngreso } from '@/components/ingreso';
 import { listarPrestadores } from '@/lib/prestadores';
 import { getSesion, rutaInicio } from '@/lib/sesion';
@@ -9,7 +10,11 @@ export default async function Ingreso({ searchParams }: { searchParams: Promise<
   const sesion = await getSesion();
   if (sesion) redirect(sesion.debeCambiarClave ? '/cambiar-clave' : rutaInicio(sesion.rol));
   const { error, modo } = await searchParams;
-  const prestadores = (await listarPrestadores()).filter(p => p.activo).map(p => p.ips);
+  // Nombre para mostrar de la red vigente (Dusakawi IPSI, Fundación Suma…); el valor sigue siendo el nombre canónico
+  const prestadores = (await listarPrestadores())
+    .filter(p => p.activo)
+    .map(p => ({ ips: p.ips, nombre: NOMBRE_PRESTADOR[p.ips as PrestadorRed] ?? p.ips }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   return (
     <div className="flex min-h-screen flex-col">

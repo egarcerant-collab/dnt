@@ -1,4 +1,5 @@
 import 'server-only';
+import { RED_PRESTADORES } from './dnt/asignacion';
 import { ipsCanonica } from './dnt/catalogo';
 import { leerExcel } from './dnt/excel-source';
 import { actualizarJson, getStore } from './dnt/store';
@@ -18,6 +19,8 @@ export interface Prestador {
   hash?: string; // contraseña personal; si no existe, se acepta la clave inicial
   activo: boolean;
   nitConfirmado: boolean; // false si el NIT se tomó automáticamente de SIVIGILA
+  /** IPS que quedó por fuera de la red vigente (se desactivó automáticamente una vez). */
+  fueraDeRed?: boolean;
   actualizadoEn: string;
   /** Pre-registro obligatorio: datos de contacto de la IPS para notificaciones. */
   contacto?: ContactoPrestador;
@@ -84,7 +87,7 @@ async function nitsDesdeSivigila(): Promise<Map<string, { nit: string; dv: strin
   return r;
 }
 
-/** Catálogo de prestadores: uno por IPS de seguimiento de la base, con NIT sugerido desde SIVIGILA. */
+/** Catálogo de prestadores: los cinco de la red vigente, con NIT sugerido desde SIVIGILA cuando existe. */
 export async function listarPrestadores(): Promise<Prestador[]> {
   const store = getStore();
   const guardados = (await store.leer<Prestador[]>(ARCHIVO)) ?? [];
@@ -92,10 +95,17 @@ export async function listarPrestadores(): Promise<Prestador[]> {
   const sugeridos = await nitsDesdeSivigila();
   let cambios = false;
 
-  for (const ips of new Set((await leerExcel()).casos.map(c => c.ipsSeguimiento))) {
-    if (ips === 'SIN IPS ASIGNADA' || porIps.has(ips)) continue;
+  // Red vigente: solo estos cinco prestadores. Se crean si faltan.
+  for (const ips of RED_PRESTADORES) {
+    if (porIps.has(ips)) continue;
     const s = sugeridos.get(ips);
     porIps.set(ips, { ips, nit: s?.nit ?? '', dv: s?.dv ?? '', activo: true, nitConfirmado: false, actualizadoEn: new Date().toISOString() });
+    cambios = true;
+  }
+  // Las demás IPS se desactivan una sola vez (se conservan con su historial; el administrador puede reactivarlas)
+  for (const p of porIps.values()) {
+    if ((RED_PRESTADORES as readonly string[]).includes(p.ips) || p.fueraDeRed) continue;
+    Object.assign(p, { activo: false, fueraDeRed: true, actualizadoEn: new Date().toISOString() });
     cambios = true;
   }
   const lista = [...porIps.values()].sort((a, b) => a.ips.localeCompare(b.ips));

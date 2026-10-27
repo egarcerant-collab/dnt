@@ -1,4 +1,5 @@
 import 'server-only';
+import { prestadorDe } from './asignacion';
 import { leerExcel, type CasoBase } from './excel-source';
 import { getStore } from './store';
 
@@ -15,5 +16,9 @@ export async function leerAdicionales(): Promise<Record<string, CasoBase>> {
 export async function casosFuente(): Promise<CasoBase[]> {
   const [excel, adicionales] = await Promise.all([leerExcel(), leerAdicionales()]);
   const ids = new Set(excel.casos.map(c => c.id));
-  return [...excel.casos, ...Object.values(adicionales).filter(c => !ids.has(c.id))];
+  // Cada niño queda con el prestador de la red vigente según su territorio (las correcciones manuales van aparte, en ajustes)
+  return [...excel.casos, ...Object.values(adicionales).filter(c => !ids.has(c.id))].map(c => {
+    const ips = prestadorDe(c);
+    return ips === c.ipsSeguimiento ? c : { ...c, ipsSeguimiento: ips };
+  });
 }
