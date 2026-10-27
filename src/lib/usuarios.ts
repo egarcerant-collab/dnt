@@ -49,7 +49,7 @@ export function verificarPassword(password: string, almacenado: string): boolean
 }
 
 /** Acepta 'usuario' o 'usuario@dusakawiepsi.com'. */
-const normalizarUsuario = (u: string) => u.trim().toLowerCase().replace(/@dusakawiepsi\.com$/, '');
+export const normalizarUsuario = (u: string) => u.trim().toLowerCase().replace(/@dusakawiepsi\.com$/, '');
 
 /** Superusuario: la cuenta principal (ADMIN_USUARIO, por defecto egarcerant). No se puede degradar ni desactivar. */
 export const esSuperusuario = (usuario: string) => normalizarUsuario(usuario) === normalizarUsuario(process.env.ADMIN_USUARIO || 'egarcerant');
@@ -237,5 +237,15 @@ export async function editarDatosUsuario(id: string, datos: { usuario: string; n
     u.nombre = nombre;
     u.correo = correo || undefined;
     u.cargo = cargo || undefined;
+  });
+}
+
+/** Nueva contraseña elegida por el propio usuario (recuperación por correo). */
+export async function establecerClaveUsuario(id: string, nueva: string) {
+  if (nueva.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres');
+  await actualizarJson<Usuario[]>(ARCHIVO, () => [], usuarios => {
+    const u = usuarios.find(x => x.id === id);
+    if (!u || !u.activo || u.pendiente) throw new Error('Usuario no disponible');
+    u.hash = hashPassword(nueva);
   });
 }

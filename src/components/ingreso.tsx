@@ -115,6 +115,7 @@ export function FormIngreso({ prestadores, error, pestanaInicial }: { prestadore
           </label>
           <CampoPassword etiqueta="Contraseña" />
           <Boton texto="Ingresar al sistema" />
+          <a href="/recuperar?modo=epsi" className="text-center text-sm font-medium text-marca-700 hover:underline">¿Olvidaste tu contraseña?</a>
         </form>
       )}
 
@@ -133,6 +134,7 @@ export function FormIngreso({ prestadores, error, pestanaInicial }: { prestadore
           </label>
           <CampoPassword etiqueta="Contraseña" ayuda="Primer ingreso: 123456. El sistema te pedirá crear tu contraseña personal." />
           <Boton texto="Ingresar como prestador" />
+          <a href="/recuperar?modo=prestador" className="text-center text-sm font-medium text-marca-700 hover:underline">¿Olvidaste tu contraseña?</a>
         </form>
       )}
 

@@ -6,10 +6,10 @@ import { getSesion, rutaInicio } from '@/lib/sesion';
 
 export const dynamic = 'force-dynamic';
 
-export default async function Ingreso({ searchParams }: { searchParams: Promise<{ error?: string; modo?: string }> }) {
+export default async function Ingreso({ searchParams }: { searchParams: Promise<{ error?: string; modo?: string; clave?: string }> }) {
   const sesion = await getSesion();
   if (sesion) redirect(sesion.debeCambiarClave ? '/cambiar-clave' : rutaInicio(sesion.rol));
-  const { error, modo } = await searchParams;
+  const { error, modo, clave } = await searchParams;
   // Nombre para mostrar de la red vigente (Dusakawi IPSI, Fundación Suma…); el valor sigue siendo el nombre canónico
   const prestadores = (await listarPrestadores())
     .filter(p => p.activo)
@@ -29,6 +29,11 @@ export default async function Ingreso({ searchParams }: { searchParams: Promise<
       </header>
 
       <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-10">
+        {clave === 'actualizada' && (
+          <p className="w-full max-w-md rounded-lg border border-marca-200 bg-marca-50 px-4 py-3 text-sm text-marca-900">
+            ✓ Contraseña actualizada. Ya puedes ingresar con tu nueva contraseña.
+          </p>
+        )}
         <FormIngreso prestadores={prestadores} error={error} pestanaInicial={modo === 'prestador' ? 'prestador' : 'epsi'} />
       </main>
     </div>

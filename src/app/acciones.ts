@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { casoVigente, eliminarCaso, moverCaso, restaurarCaso } from '@/lib/dnt/ajustes';
 import { descartarPre, incorporarPre, reabrirPre, verificarPre } from '@/lib/dnt/preregistro';
+import { restablecerConToken, solicitarRecuperacion } from '@/lib/recuperacion';
 import { guardarFirma, quitarFirma } from '@/lib/firmas';
 import { enviarMensaje, type TipoMensaje } from '@/lib/dnt/mensajes';
 import { avisarMensajeIps, enviarInformes } from '@/lib/dnt/informe-ips';
@@ -382,4 +383,25 @@ export async function accionIncorporarPre(_prev: EstadoAccion, form: FormData): 
   } catch (e) {
     return { ok: false, mensaje: (e as Error).message };
   }
+}
+
+// ── Recuperación de contraseña ─────────────────────────────────────────
+
+export async function accionSolicitarRecuperacion(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
+  const tipo = form.get('tipo') === 'prestador' ? 'prestador' : 'epsi';
+  const valor = String(form.get(tipo === 'prestador' ? 'ips' : 'usuario') ?? '').trim();
+  if (!valor) return { ok: false, mensaje: tipo === 'prestador' ? 'Selecciona tu IPS' : 'Escribe tu usuario o correo' };
+  return tipo === 'prestador' ? solicitarRecuperacion({ tipo, ips: valor }) : solicitarRecuperacion({ tipo, usuario: valor });
+}
+
+export async function accionRestablecerClave(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
+  const nueva = String(form.get('nueva') ?? '');
+  if (nueva !== String(form.get('confirmar') ?? '')) return { ok: false, mensaje: 'Las contraseñas no coinciden' };
+  let tipo: string;
+  try {
+    tipo = await restablecerConToken(String(form.get('t') ?? ''), nueva);
+  } catch (e) {
+    return { ok: false, mensaje: (e as Error).message };
+  }
+  redirect(`/?modo=${tipo === 'prestador' ? 'prestador' : 'epsi'}&clave=actualizada`);
 }
