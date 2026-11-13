@@ -1,5 +1,6 @@
 import 'server-only';
 import { RED_PRESTADORES } from './dnt/asignacion';
+import { digitoVerificacion, separarNit } from './nit';
 import { ipsCanonica } from './dnt/catalogo';
 import { leerExcel } from './dnt/excel-source';
 import { actualizarJson, getStore } from './dnt/store';
@@ -146,19 +147,19 @@ async function guardar(ips: string, cambio: (p: Prestador) => void) {
   });
 }
 
-/** Dígito de verificación del NIT (algoritmo DIAN, módulo 11). */
-export function digitoVerificacion(nit: string): string {
-  const pesos = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];
-  const suma = [...nit].reverse().reduce((t, d, i) => t + Number(d) * pesos[i], 0) % 11;
-  return String(suma >= 2 ? 11 - suma : suma);
-}
+export { digitoVerificacion };
 
+/**
+ * Valida el NIT. Acepta puntos y guion ("901.660.868-1"); el DV es opcional: si no se escribe,
+ * se calcula con el algoritmo DIAN; si se escribe, debe coincidir.
+ */
 export function validarNit(nit: string, dv: string): { nit: string; dv: string } {
-  const n = soloDigitos(nit);
-  const d = soloDigitos(dv);
-  if (!/^d{6,10}$/.test(n)) throw new Error('El NIT debe tener entre 6 y 10 dígitos, sin puntos ni dígito de verificación');
-  if (!/^d$/.test(d)) throw new Error('Escribe el dígito de verificación del NIT (un solo número)');
-  if (digitoVerificacion(n) !== d) throw new Error('El dígito de verificación no corresponde al NIT. Revísalo en el RUT de la IPS');
+  const s = separarNit(nit);
+  const n = s.nit;
+  const escrito = soloDigitos(dv) || s.dv;
+  if (!/^\d{6,10}$/.test(n)) throw new Error('El NIT debe tener entre 6 y 10 dígitos');
+  const d = digitoVerificacion(n);
+  if (escrito && escrito !== d) throw new Error(`El dígito de verificación no corresponde: para el NIT ${n} el DV es ${d}. Revísalo en el RUT de la IPS`);
   return { nit: n, dv: d };
 }
 

@@ -1,13 +1,19 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { accionGuardarContacto } from '@/app/acciones';
+import { digitoVerificacion, separarNit } from '@/lib/nit';
 
 export interface ContactoVista { responsable: string; cargo: string; correos: string[]; whatsapp: string; telefono?: string }
 
 /** Pre-registro de la IPS: responsable y medios de contacto para notificaciones. */
 export function FormContacto({ ips, inicial, esAdmin, nit, dv }: { ips: string; inicial?: ContactoVista; esAdmin: boolean; nit: string; dv: string }) {
   const [estado, accion, pendiente] = useActionState(accionGuardarContacto, null);
+  const [textoNit, setTextoNit] = useState(nit ? `${nit}${dv ? `-${dv}` : ''}` : '');
+  // El DV se calcula solo (algoritmo DIAN) mientras se escribe el NIT
+  const { nit: soloNit } = separarNit(textoNit);
+  const valido = /^\d{6,10}$/.test(soloNit);
+  const dvCalculado = valido ? digitoVerificacion(soloNit) : '';
   return (
     <form action={accion} className="flex flex-col gap-4">
       {esAdmin && <input type="hidden" name="ips" value={ips} />}
@@ -15,15 +21,20 @@ export function FormContacto({ ips, inicial, esAdmin, nit, dv }: { ips: string; 
         <div className="flex gap-2 sm:col-span-2">
           <label className="flex flex-1 flex-col gap-1 text-sm font-medium">
             NIT de la IPS *
-            <input name="nit" required inputMode="numeric" pattern="[0-9]{6,10}" maxLength={10} defaultValue={nit} className="input" placeholder="824001398" />
-            <span className="text-xs font-normal text-slate-500">Solo números, sin puntos ni guion.</span>
+            <input name="nit" required inputMode="numeric" value={textoNit} onChange={e => setTextoNit(e.target.value)} className="input" placeholder="901660868" />
+            <span className="text-xs font-normal text-slate-500">Escríbelo como quieras: 901660868, 901.660.868 o 901660868-1. El dígito de verificación se calcula solo.</span>
           </label>
           <label className="flex w-28 flex-col gap-1 text-sm font-medium">
-            DV *
-            <input name="dv" required inputMode="numeric" pattern="[0-9]" maxLength={1} defaultValue={dv} className="input text-center" placeholder="1" />
-            <span className="text-xs font-normal text-slate-500">Dígito de verificación</span>
+            DV
+            <input readOnly tabIndex={-1} value={dvCalculado} className="input bg-slate-100 text-center font-bold" placeholder="—" aria-label="Dígito de verificación calculado" />
+            <span className="text-xs font-normal text-slate-500">Automático</span>
           </label>
         </div>
+        {valido && (
+          <p className="-mt-1 text-sm text-marca-800 sm:col-span-2">
+            NIT: <b>{Number(soloNit).toLocaleString('es-CO')}-{dvCalculado}</b>. Verifica que coincida con el RUT de la IPS.
+          </p>
+        )}
         <label className="flex flex-col gap-1 text-sm font-medium">
           Responsable del seguimiento DNT *
           <input name="responsable" required minLength={5} maxLength={100} defaultValue={inicial?.responsable} className="input" placeholder="Nombre completo" />
