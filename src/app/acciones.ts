@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { casoVigente, eliminarCaso, moverCaso, restaurarCaso } from '@/lib/dnt/ajustes';
 import { descartarPre, incorporarPre, reabrirPre, verificarPre } from '@/lib/dnt/preregistro';
 import { restablecerConToken, solicitarRecuperacion } from '@/lib/recuperacion';
+import { enviarAvisosPrimaria, guardarCorreosPrimaria } from '@/lib/dnt/aviso-primaria';
 import { guardarFirma, quitarFirma } from '@/lib/firmas';
 import { enviarMensaje, type TipoMensaje } from '@/lib/dnt/mensajes';
 import { avisarMensajeIps, enviarInformes } from '@/lib/dnt/informe-ips';
@@ -404,4 +405,33 @@ export async function accionRestablecerClave(_prev: EstadoAccion, form: FormData
     return { ok: false, mensaje: (e as Error).message };
   }
   redirect(`/?modo=${tipo === 'prestador' ? 'prestador' : 'epsi'}&clave=actualizada`);
+}
+
+// ── Aviso a IPS de atención primaria ───────────────────────────────────
+
+export async function accionCorreosPrimaria(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
+  const s = await getSesion();
+  if (!s || !esEpsi(s.rol)) return { ok: false, mensaje: 'No autorizado' };
+  try {
+    await guardarCorreosPrimaria(String(form.get('ips') ?? ''), String(form.get('correos') ?? ''), s.nombre);
+  } catch (e) {
+    return { ok: false, mensaje: (e as Error).message };
+  }
+  revalidatePath('/notificaciones');
+  return { ok: true, mensaje: 'Correo guardado.' };
+}
+
+export async function accionEnviarAvisoPrimaria(_prev: EstadoAccion, form: FormData): Promise<EstadoAccion> {
+  const s = await getSesion();
+  if (!s || !esEpsi(s.rol)) return { ok: false, mensaje: 'No autorizado' };
+  const ips = String(form.get('ips') ?? '') || undefined;
+  const r = await enviarAvisosPrimaria({ ips, reenviar: form.get('reenviar') === 'si' });
+  revalidatePath('/notificaciones');
+  if (!r.length) return { ok: false, mensaje: 'No hay niños pendientes de aviso.' };
+  const ok = r.filter(x => x.ok);
+  const fallas = r.filter(x => !x.ok);
+  return {
+    ok: ok.length > 0,
+    mensaje: `Avisos enviados: ${ok.length} IPS (${ok.reduce((t, x) => t + x.ninos, 0)} niños).${fallas.length ? ` Sin enviar: ${fallas.length} (${fallas[0].motivo}).` : ''}`,
+  };
 }

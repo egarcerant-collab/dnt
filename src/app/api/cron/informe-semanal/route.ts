@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { enviarAvisosPrimaria } from '@/lib/dnt/aviso-primaria';
 import { enviarInformes } from '@/lib/dnt/informe-ips';
 
 /**
@@ -11,5 +12,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
   const r = await enviarInformes();
-  return NextResponse.json({ enviados: r.filter(x => x.ok).length, fallidos: r.filter(x => !x.ok) });
+  // Avisos a IPS de atención primaria: solo niños que aún no se han avisado
+  const avisos = await enviarAvisosPrimaria().catch(e => [{ ips: '-', ok: false, ninos: 0, motivo: (e as Error).message }]);
+  return NextResponse.json({ enviados: r.filter(x => x.ok).length, fallidos: r.filter(x => !x.ok), avisosPrimaria: avisos });
 }

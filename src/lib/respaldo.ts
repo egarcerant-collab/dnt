@@ -19,6 +19,8 @@ const ARCHIVOS = [
   'usuarios.json',
   'correos-enviados.json',
   'auditoria-exportaciones.json',
+  'directorio-primaria.json',
+  'avisos-primaria.json',
   'ajustes-casos.json',
   'preregistro.json',
   'casos-adicionales.json',

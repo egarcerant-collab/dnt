@@ -1,4 +1,6 @@
 import { faltaPreregistro } from '@/lib/prestadores';
+import { AvisoPrimaria } from '@/components/aviso-primaria';
+import { ipsPrimariasConAviso } from '@/lib/dnt/aviso-primaria';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Encabezado } from '@/components/encabezado';
@@ -43,6 +45,7 @@ export default async function Notificaciones() {
     ? await Promise.all([listarPrestadores(), resumenesPorIps(), listarCorreosEnviados()])
     : [[], new Map(), []];
   const ultimoEnvio = (correos: string[]) => enviados.find(e => e.para.some(p => correos.includes(p)));
+  const primarias = epsi ? await ipsPrimariasConAviso() : [];
   const conCorreo = prestadores.filter(p => p.contacto?.correos.length).length;
 
   return (
@@ -148,6 +151,8 @@ export default async function Notificaciones() {
             </table>
           </section>
         )}
+
+        {epsi && <AvisoPrimaria ips={primarias} />}
 
         {epsi && (
           <section className="tarjeta overflow-x-auto">

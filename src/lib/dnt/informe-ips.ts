@@ -1,6 +1,7 @@
 import 'server-only';
 import { URL_APP, enviarCorreo, plantilla } from '../correo';
 import { listarPrestadores } from '../prestadores';
+import { textoAvisoParaRuta } from './aviso-primaria';
 import { listarHistorias } from './historias';
 import { listarMensajes } from './mensajes';
 import { obtenerBase } from './repositorio';
@@ -72,9 +73,12 @@ export async function enviarInformes(soloIps?: string) {
       resultados.push({ ips: p.ips, ok: false, motivo: 'Sin correo registrado (falta el pre-registro)' });
       continue;
     }
+    // Párrafo adicional (aparte del resumen): niños con otra IPS de atención primaria
+    const aviso = await textoAvisoParaRuta(p.ips).catch(() => null);
+    const extra = aviso ? [aviso] : [];
     const { html, texto } = plantilla(
       `Informe de seguimiento · ${p.ips}`,
-      [`Cordial saludo${p.contacto.responsable ? ', ' + p.contacto.responsable : ''}.`, 'Este es el estado actual del seguimiento de los niños y niñas con desnutrición aguda asignados a su IPS:'],
+      [`Cordial saludo${p.contacto.responsable ? ', ' + p.contacto.responsable : ''}.`, 'Este es el estado actual del seguimiento de los niños y niñas con desnutrición aguda asignados a su IPS:', ...extra],
       [
         ['Niños asignados', s.ninos],
         ['Niños activos', s.activos],
