@@ -14,7 +14,7 @@ export async function Encabezado({ sesion, fechaCorte, almacenamiento }: { sesio
   const pendientes = noLeidos(await listarMensajes(), sesion.rol, sesion.ips).length;
 
   return (
-    <header className="bg-marca-700 text-white shadow">
+    <header className="bg-red-600 text-white shadow">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
         <Link href={rutaInicio(sesion.rol)} className="flex items-center gap-3">
           <img src="/nutria.svg" alt="" className="h-10 w-10 rounded-full bg-white p-0.5" />
@@ -34,7 +34,7 @@ export async function Encabezado({ sesion, fechaCorte, almacenamiento }: { sesio
           <Enlace href="/notificaciones">
             Notificaciones
             {pendientes > 0 && (
-              <span className="ml-1.5 rounded-full bg-red-500 px-1.5 py-0.5 text-[11px] font-bold">{pendientes}</span>
+              <span className="ml-1.5 rounded-full bg-white px-1.5 py-0.5 text-[11px] font-bold text-red-700">{pendientes}</span>
             )}
           </Enlace>
           {sesion.rol === 'admin' && (
