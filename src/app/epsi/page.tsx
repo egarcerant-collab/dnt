@@ -204,7 +204,7 @@ function resumenPorGrupo(casos: Caso[], k: (c: Caso) => string): FilaGrupo[] {
     .map(([nombre, cs]) => {
       const ind = Object.fromEntries(calcularIndicadores(cs).map(i => [i.clave, i]));
       const porc = (i: Indicador): Porcentaje => ({ valor: i.valor, num: i.num ?? 0, den: i.den ?? 0, formula: i.formula ?? '' });
-      return { nombre, total: cs.length, ceroControles: cs.filter(c => c.controles.length === 0).length, totalControles: cs.reduce((n, c) => n + c.controles.length, 0), recuperacion: porc(ind.recuperacion), oportunidad: porc(ind.oportunidad), sinControl: ind.sinControl.valor ?? 0, sinEstado: ind.sinEstado.valor ?? 0 };
+      return { nombre, total: cs.length, ceroControles: cs.filter(c => c.controles.length === 0).length, totalControles: cs.reduce((n, c) => n + c.controles.length, 0), recuperacion: porc(ind.recuperacion), oportunidad: porc(ind.oportunidad), sinControl: cs.filter(c => c.alertas.includes('SIN_CONTROL_4_SEMANAS')).length, sinEstado: cs.filter(c => c.estado === 'SIN DILIGENCIAR').length };
     })
     .sort((a, b) => b.total - a.total);
 }
