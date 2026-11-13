@@ -6,6 +6,7 @@ const nextConfig = {
   outputFileTracingIncludes: {
     '/api/exportar-matriz': ['./plantillas/**'],
     '/api/informes/pdf': ['./plantillas/**'],
+    '/api/reporte-nominal': ['./plantillas/**'],
   },
 };
 export default nextConfig;

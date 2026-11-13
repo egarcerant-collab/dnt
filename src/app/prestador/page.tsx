@@ -2,6 +2,8 @@ import { faltaPreregistro } from '@/lib/prestadores';
 import { redirect } from 'next/navigation';
 import { Encabezado } from '@/components/encabezado';
 import { PanelPrestador } from '@/components/panel-prestador';
+import { ReportesNominales } from '@/components/reportes-nominales';
+import { gruposPrimerNivel } from '@/lib/dnt/reporte-nominal';
 import { SelectorIps } from '@/components/selector-ips';
 import Link from 'next/link';
 import { listarMensajes, noLeidos } from '@/lib/dnt/mensajes';
@@ -45,6 +47,7 @@ export default async function VistaPrestador({ searchParams }: { searchParams: P
           </Link>
         )}
         <PanelPrestador key={ips} filas={filas} fechaCorte={base.fechaCorte} />
+        {ips && <ReportesNominales grupos={await gruposPrimerNivel(ips)} mostrarRuta={false} />}
       </main>
     </>
   );

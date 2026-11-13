@@ -1,6 +1,8 @@
 import { faltaPreregistro } from '@/lib/prestadores';
 import { AvisoPrimaria } from '@/components/aviso-primaria';
 import { ipsPrimariasConAviso } from '@/lib/dnt/aviso-primaria';
+import { ReportesNominales } from '@/components/reportes-nominales';
+import { gruposPrimerNivel } from '@/lib/dnt/reporte-nominal';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Encabezado } from '@/components/encabezado';
@@ -46,6 +48,7 @@ export default async function Notificaciones() {
     : [[], new Map(), []];
   const ultimoEnvio = (correos: string[]) => enviados.find(e => e.para.some(p => correos.includes(p)));
   const primarias = epsi ? await ipsPrimariasConAviso() : [];
+  const gruposReporte = epsi ? await gruposPrimerNivel() : [];
   const conCorreo = prestadores.filter(p => p.contacto?.correos.length).length;
 
   return (
@@ -152,6 +155,7 @@ export default async function Notificaciones() {
           </section>
         )}
 
+        {epsi && <ReportesNominales grupos={gruposReporte} mostrarRuta />}
         {epsi && <AvisoPrimaria ips={primarias} />}
 
         {epsi && (
