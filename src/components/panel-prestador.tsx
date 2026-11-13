@@ -135,7 +135,7 @@ export function PanelPrestador({ filas: todas, fechaCorte }: { filas: FilaCaso[]
                 <th className="px-3 py-2">Niño/a</th>
                 <th className="px-3 py-2">Edad</th>
                 <th className="px-3 py-2">Municipio</th>
-                <th className="px-3 py-2">Severidad</th>
+                <th className="px-3 py-2">Tipo de DNT</th>
                 <th className="px-3 py-2">Estado</th>
                 <th className="px-3 py-2">Último control</th>
                 <th className="px-3 py-2">Último Z P/T</th>
