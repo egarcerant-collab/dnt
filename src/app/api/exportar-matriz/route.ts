@@ -3,7 +3,6 @@ import path from 'path';
 import * as XLSX from 'xlsx';
 import { BLOQUES_CONTROL, COL_AX, COL_UBICACION, TOTAL_COLUMNAS, camposBloque, leerExcel } from '@/lib/dnt/excel-source';
 import { departamentoCanonico, ipsCanonica, municipioCanonico } from '@/lib/dnt/catalogo';
-import { prestadorDe } from '@/lib/dnt/asignacion';
 import { filtrarCasos } from '@/lib/dnt/filtros';
 import { obtenerBase } from '@/lib/dnt/repositorio';
 import { getStore } from '@/lib/dnt/store';
@@ -27,10 +26,7 @@ function filaMatriz(caso: Caso, original: unknown[]): unknown[] {
   // Casos movidos por la EPSI: se escribe la ubicación corregida
   if (departamentoCanonico(fila[COL_UBICACION.departamento]) !== caso.departamento) fila[COL_UBICACION.departamento] = caso.departamento;
   if (municipioCanonico(fila[COL_UBICACION.municipio]) !== caso.municipio) fila[COL_UBICACION.municipio] = caso.municipio;
-  // Columna X: se conserva la IPSI de primer nivel original; solo se reescribe si la EPSI movió el caso manualmente
-  // (la reasignación automática al prestador de la red no borra la IPSI dueña del niño)
-  const soloReasignado = caso.ipsSeguimiento === prestadorDe({ ...caso, ipsSeguimiento: caso.ipsPrimerNivel ?? '' });
-  if (!soloReasignado && caso.ipsSeguimiento !== 'SIN IPS ASIGNADA' && ipsCanonica(fila[COL_UBICACION.ipsSeguimiento]) !== caso.ipsSeguimiento) fila[COL_UBICACION.ipsSeguimiento] = caso.ipsSeguimiento;
+  if (caso.ipsSeguimiento !== 'SIN IPS ASIGNADA' && ipsCanonica(fila[COL_UBICACION.ipsSeguimiento]) !== caso.ipsSeguimiento) fila[COL_UBICACION.ipsSeguimiento] = caso.ipsSeguimiento;
 
   // Se limpian los bloques y se reescriben en orden, uno por control
   for (const [inicio, tam] of BLOQUES_CONTROL) for (let j = 0; j < tam; j++) fila[inicio + j] = null;
