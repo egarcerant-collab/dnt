@@ -43,7 +43,7 @@ export function PiramideDnt({ casos, totalGeneral }: { casos: Caso[]; totalGener
     const segs = (['severa', 'moderada', 'otra'] as const).filter(k => c[k]);
     return (
       <div className={`flex items-center gap-1.5 ${lado === 'Masculino' ? 'flex-row-reverse' : ''}`}>
-        <div className={`flex h-7 overflow-hidden ${lado === 'Masculino' ? 'flex-row-reverse rounded-l' : 'rounded-r'}`} style={{ width: `${(n / max) * 100}%` }}
+        <div className={`flex h-4 overflow-hidden ${lado === 'Masculino' ? 'flex-row-reverse rounded-l' : 'rounded-r'}`} style={{ width: `${(n / max) * 100}%` }}
           title={`${lado}: ${n} (${c.severa} severa · ${c.moderada} moderada${c.otra ? ` · ${c.otra} sin clasificar` : ''})`}>
           {segs.map(k => <span key={k} style={{ width: `${(c[k] / n) * 100}%`, background: col[k] }} />)}
         </div>
@@ -63,7 +63,7 @@ export function PiramideDnt({ casos, totalGeneral }: { casos: Caso[]; totalGener
         <span className="w-24 text-center text-slate-400">Edad</span>
         <span className="text-pink-800">Niñas {totF} ({pct(totF)}%)</span>
       </div>
-      <div className="flex flex-1 flex-col justify-around gap-1.5">
+      <div className="flex flex-col gap-1">
         {bandas.map(b => (
           <div key={b} className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-2">
             <Barra c={datos[b].Masculino} lado="Masculino" />
@@ -80,6 +80,105 @@ export function PiramideDnt({ casos, totalGeneral }: { casos: Caso[]; totalGener
       {(sinEdad > 0 || sinSexo > 0) && (
         <p className="text-[11px] text-slate-500">No graficados: {sinEdad ? `${sinEdad} sin edad` : ''}{sinEdad && sinSexo ? ' · ' : ''}{sinSexo ? `${sinSexo} sin sexo registrado` : ''}.</p>
       )}
+
+      {/* Distribución poblacional en tabla: edad × sexo × tipo de DNT */}
+      <div className="overflow-x-auto border-t border-slate-100 pt-3">
+        <p className="etiqueta mb-1">Distribución por edad y sexo</p>
+        <table className="w-full text-xs tabular-nums">
+          <thead className="bg-slate-50 text-slate-500">
+            <tr>
+              <th rowSpan={2} className="px-2 py-1 text-left">Edad</th>
+              <th colSpan={3} className="px-2 py-1 text-center text-blue-800">Niños</th>
+              <th colSpan={3} className="px-2 py-1 text-center text-pink-800">Niñas</th>
+              <th rowSpan={2} className="px-2 py-1 text-right">Total</th>
+              <th rowSpan={2} className="px-2 py-1 text-right">%</th>
+            </tr>
+            <tr>
+              <th className="px-2 py-1 text-right font-normal">Sev.</th><th className="px-2 py-1 text-right font-normal">Mod.</th><th className="px-2 py-1 text-right">Total</th>
+              <th className="px-2 py-1 text-right font-normal">Sev.</th><th className="px-2 py-1 text-right font-normal">Mod.</th><th className="px-2 py-1 text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {[...bandas].reverse().map(b => {
+              const m = datos[b].Masculino, f = datos[b].Femenino, t = total(m) + total(f);
+              return (
+                <tr key={b}>
+                  <td className="px-2 py-1 text-left">{b}</td>
+                  <td className="px-2 py-1 text-right">{m.severa}</td><td className="px-2 py-1 text-right">{m.moderada}</td><td className="px-2 py-1 text-right font-semibold">{total(m)}</td>
+                  <td className="px-2 py-1 text-right">{f.severa}</td><td className="px-2 py-1 text-right">{f.moderada}</td><td className="px-2 py-1 text-right font-semibold">{total(f)}</td>
+                  <td className="px-2 py-1 text-right font-semibold">{t}</td><td className="px-2 py-1 text-right text-slate-500">{pct(t)}%</td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot className="border-t-2 border-slate-200 font-semibold">
+            <tr>
+              <td className="px-2 py-1 text-left">Total</td>
+              <td className="px-2 py-1 text-right">{bandas.reduce((s, b) => s + datos[b].Masculino.severa, 0)}</td>
+              <td className="px-2 py-1 text-right">{bandas.reduce((s, b) => s + datos[b].Masculino.moderada, 0)}</td>
+              <td className="px-2 py-1 text-right">{totM}</td>
+              <td className="px-2 py-1 text-right">{bandas.reduce((s, b) => s + datos[b].Femenino.severa, 0)}</td>
+              <td className="px-2 py-1 text-right">{bandas.reduce((s, b) => s + datos[b].Femenino.moderada, 0)}</td>
+              <td className="px-2 py-1 text-right">{totF}</td>
+              <td className="px-2 py-1 text-right">{graficados}</td><td className="px-2 py-1 text-right">100%</td>
+            </tr>
+          </tfoot>
+        </table>
+        <p className="mt-1 text-[11px] text-slate-400">Sev. = DNT severa · Mod. = DNT moderada (los sin clasificar suman al total).</p>
+      </div>
+    </section>
+  );
+}
+
+/** Distribución poblacional por municipio: sexo, tipo de DNT y grupo de edad. */
+export function TablaMunicipios({ casos }: { casos: Caso[] }) {
+  type Fila = { depto: string; municipio: string; m: number; f: number; sev: number; mod: number; menor2: number; total: number };
+  const mapa = new Map<string, Fila>();
+  for (const c of casos) {
+    const k = `${c.departamento}|${c.municipio}`;
+    const r = mapa.get(k) ?? { depto: c.departamento, municipio: c.municipio || 'SIN MUNICIPIO', m: 0, f: 0, sev: 0, mod: 0, menor2: 0, total: 0 };
+    const s = sexoDe(c);
+    if (s === 'Masculino') r.m++; else if (s === 'Femenino') r.f++;
+    if (c.severidad === 'SEVERA') r.sev++; else if (c.severidad === 'MODERADA') r.mod++;
+    if (c.edadMeses != null && c.edadMeses < 24) r.menor2++;
+    r.total++;
+    mapa.set(k, r);
+  }
+  const filas = [...mapa.values()].sort((a, b) => b.total - a.total);
+  const n = casos.length || 1;
+  const suma = (k: keyof Omit<Fila, 'depto' | 'municipio'>) => filas.reduce((s, r) => s + r[k], 0);
+  const celda = 'px-3 py-1.5 text-right';
+  return (
+    <section className="tarjeta overflow-x-auto">
+      <h3 className="border-b border-slate-100 p-4 font-semibold">Distribución poblacional por municipio <span className="font-normal text-slate-500">({filas.length} municipios · {casos.length} niños)</span></h3>
+      <table className="w-full text-sm tabular-nums">
+        <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+          <tr>
+            <th className="px-3 py-2 text-left">Municipio</th><th className="px-3 py-2 text-left">Departamento</th>
+            <th className="px-3 py-2 text-right">Niños</th><th className="px-3 py-2 text-right">Niñas</th>
+            <th className="px-3 py-2 text-right">DNT severa</th><th className="px-3 py-2 text-right">DNT moderada</th>
+            <th className="px-3 py-2 text-right">Menores de 2 años</th><th className="px-3 py-2 text-right">Total</th><th className="px-3 py-2 text-right">%</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {filas.map(r => (
+            <tr key={`${r.depto}|${r.municipio}`} className="hover:bg-slate-50">
+              <td className="px-3 py-1.5 font-medium">{r.municipio}</td><td className="px-3 py-1.5 text-xs text-slate-500">{r.depto}</td>
+              <td className={celda}>{r.m}</td><td className={celda}>{r.f}</td>
+              <td className={`${celda} ${r.sev ? 'font-semibold text-red-600' : ''}`}>{r.sev}</td><td className={celda}>{r.mod}</td>
+              <td className={celda}>{r.menor2}</td><td className={`${celda} font-semibold`}>{r.total}</td>
+              <td className={`${celda} text-slate-500`}>{Math.round((r.total / n) * 1000) / 10}%</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot className="border-t-2 border-slate-200 font-semibold">
+          <tr>
+            <td className="px-3 py-2" colSpan={2}>Total</td>
+            <td className={celda}>{suma('m')}</td><td className={celda}>{suma('f')}</td><td className={celda}>{suma('sev')}</td><td className={celda}>{suma('mod')}</td>
+            <td className={celda}>{suma('menor2')}</td><td className={celda}>{suma('total')}</td><td className={celda}>100%</td>
+          </tr>
+        </tfoot>
+      </table>
     </section>
   );
 }

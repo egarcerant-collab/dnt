@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { Encabezado } from '@/components/encabezado';
 import { FiltrosCascada } from '@/components/filtros-cascada';
 import { MapaTerritorio } from '@/components/mapa-territorio';
-import { PiramideDnt } from '@/components/piramide-dnt';
+import { PiramideDnt, TablaMunicipios } from '@/components/piramide-dnt';
 import { PanelDistribucion } from '@/components/panel-distribucion';
 import { DIMENSIONES, cruce, distribucion, type Dimension } from '@/lib/dnt/distribucion';
 import { AlertaChip, EstadoBadge, LeyendaSemaforo, SeveridadBadge, formatoFecha } from '@/components/ui';
@@ -69,6 +69,7 @@ export default async function VistaEpsi({ searchParams }: { searchParams: Promis
           <MapaTerritorio conteos={conteosMapa} valores={filtroGeo} totalGeneral={todos.length} filtrados={casos.length} />
           <PiramideDnt casos={casos} totalGeneral={todos.length} />
         </div>
+        <TablaMunicipios casos={casos} />
 
         <section>
           <h2 className="mb-3 text-lg font-semibold">Indicadores trazadores</h2>
