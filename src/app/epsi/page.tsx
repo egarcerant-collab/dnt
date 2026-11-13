@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Encabezado } from '@/components/encabezado';
 import { FiltrosCascada } from '@/components/filtros-cascada';
+import { MapaTerritorio } from '@/components/mapa-territorio';
+import { PiramideDnt } from '@/components/piramide-dnt';
 import { PanelDistribucion } from '@/components/panel-distribucion';
 import { DIMENSIONES, cruce, distribucion, type Dimension } from '@/lib/dnt/distribucion';
 import { AlertaChip, EstadoBadge, LeyendaSemaforo, SeveridadBadge, formatoFecha } from '@/components/ui';
@@ -32,6 +34,11 @@ export default async function VistaEpsi({ searchParams }: { searchParams: Promis
   const indicadores = calcularIndicadores(casos);
   const alertas = contarAlertas(casos);
   const combinaciones = [...new Map(todos.map(c => [`${c.departamento}|${c.municipio}|${c.ipsSeguimiento}`, { depto: c.departamento, municipio: c.municipio, ips: c.ipsSeguimiento }])).values()];
+  // Mapa: todos los municipios del prestador seleccionado (la selección geográfica se resalta en el mapa)
+  const conteosMapa = contar(filtrarCasos(todos, { ips: f.ips }), c => `${c.departamento}|${c.municipio}`).map(([k, n]) => {
+    const [depto, municipio] = k.split('|');
+    return { depto, municipio, casos: n };
+  });
   const porIps = resumenPorGrupo(casos, c => c.ipsSeguimiento);
   const porMunicipio = resumenPorGrupo(casos, c => `${c.municipio} (${c.departamento.replace('LA ', '')})`);
   const prioritarios = casos
@@ -56,6 +63,11 @@ export default async function VistaEpsi({ searchParams }: { searchParams: Promis
           <a href={urlExportar()} className="boton gap-2" download>
             <IconoDescarga /> Exportar a Excel ({casos.length} casos)
           </a>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <MapaTerritorio conteos={conteosMapa} valores={filtroGeo} />
+          <PiramideDnt casos={casos} />
         </div>
 
         <section>
