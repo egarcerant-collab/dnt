@@ -63,7 +63,8 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
     ['Residencia', `${caso.municipio}, ${caso.departamento}`],
     ['Asentamiento', caso.asentamiento || '—'],
     ['Teléfono', caso.telefono || '—'],
-    ['IPS seguimiento', caso.ipsSeguimiento],
+    ['IPSI primer nivel', caso.ipsPrimerNivel || caso.ipsSeguimiento],
+    ['Prestador seguimiento DNT', caso.ipsSeguimiento],
     ['Notificación', `${formatoFecha(caso.fechaNotificacion)} · SE ${caso.semanaEpi ?? '—'}`],
     ['SIVIGILA', caso.enSivigila ? `Cruza · condición final ${caso.condicionFinalSivigila === '2' ? 'muerto' : 'vivo'}` : 'No cruza'],
   ];
