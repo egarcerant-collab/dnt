@@ -86,7 +86,8 @@ export interface Caso {
   semanaEpi: number | null;
   fechaNotificacion: string | null;
   ipsInicial: string;
-  ipsSeguimiento: string;
+  ipsSeguimiento: string; // prestador de la red que hace el seguimiento de la ruta DNT
+  ipsPrimerNivel?: string; // columna X original: IPSI de primer nivel a la que pertenece el niño
   severidad: Severidad;
   clasificacionNutricional: ClasificacionNutricional;
   clasificacionPorZ: boolean; // derivada del Z-score por falta de texto

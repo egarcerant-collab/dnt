@@ -19,6 +19,7 @@ export async function casosFuente(): Promise<CasoBase[]> {
   // Cada niño queda con el prestador de la red vigente según su territorio (las correcciones manuales van aparte, en ajustes)
   return [...excel.casos, ...Object.values(adicionales).filter(c => !ids.has(c.id))].map(c => {
     const ips = prestadorDe(c);
-    return ips === c.ipsSeguimiento ? c : { ...c, ipsSeguimiento: ips };
+    // Se conserva la IPSI de primer nivel original (dueña del niño) aparte del prestador del seguimiento
+    return { ...c, ipsPrimerNivel: c.ipsPrimerNivel || c.ipsSeguimiento, ipsSeguimiento: ips };
   });
 }
