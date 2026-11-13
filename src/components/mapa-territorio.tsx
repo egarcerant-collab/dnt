@@ -59,15 +59,15 @@ export function MapaTerritorio({ conteos, valores, totalGeneral, filtrados }: { 
         <h3 className="font-semibold">Mapa del territorio</h3>
         <span className={`text-xs ${cargando ? 'text-marca-600' : 'text-slate-500'}`}>{cargando ? 'Actualizando…' : 'Clic en un municipio para filtrar'}</span>
       </div>
-      <div className="flex items-center gap-3 rounded-lg bg-marca-50 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-4 rounded-xl bg-marca-700 px-4 py-3 text-white">
         <div>
-          <p className="text-2xl font-bold leading-none text-marca-900">{totalGeneral}</p>
-          <p className="text-[11px] text-marca-800">niños en total (3 departamentos)</p>
+          <p className="text-5xl font-extrabold leading-none">{totalGeneral}</p>
+          <p className="mt-1 text-sm font-medium text-white/90">niños en total · Cesar, La Guajira y Magdalena</p>
         </div>
         {filtrados !== totalGeneral && (
-          <div className="border-l border-marca-200 pl-3">
-            <p className="text-2xl font-bold leading-none text-slate-900">{filtrados}</p>
-            <p className="text-[11px] text-slate-600">en la selección ({totalGeneral ? Math.round((filtrados / totalGeneral) * 1000) / 10 : 0}%)</p>
+          <div className="border-l border-white/40 pl-4">
+            <p className="text-4xl font-extrabold leading-none">{filtrados}</p>
+            <p className="mt-1 text-sm font-medium text-white/90">en la selección ({totalGeneral ? Math.round((filtrados / totalGeneral) * 1000) / 10 : 0}%)</p>
           </div>
         )}
       </div>
