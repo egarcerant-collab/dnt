@@ -66,8 +66,8 @@ export default async function VistaEpsi({ searchParams }: { searchParams: Promis
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <MapaTerritorio conteos={conteosMapa} valores={filtroGeo} />
-          <PiramideDnt casos={casos} />
+          <MapaTerritorio conteos={conteosMapa} valores={filtroGeo} totalGeneral={todos.length} filtrados={casos.length} />
+          <PiramideDnt casos={casos} totalGeneral={todos.length} />
         </div>
 
         <section>

@@ -19,7 +19,7 @@ const COLOR = {
 };
 
 /** Pirámide poblacional de los casos de DNT: edad (meses) × sexo, con el tipo de DNT (severa / moderada) apilado. */
-export function PiramideDnt({ casos }: { casos: Caso[] }) {
+export function PiramideDnt({ casos, totalGeneral }: { casos: Caso[]; totalGeneral?: number }) {
   const datos = Object.fromEntries(BANDAS_PIRAMIDE.map(b => [b, { Masculino: vacia(), Femenino: vacia() }])) as Record<string, Record<'Masculino' | 'Femenino', Celda>>;
   let sinEdad = 0, sinSexo = 0;
   for (const c of casos) {
@@ -56,7 +56,7 @@ export function PiramideDnt({ casos }: { casos: Caso[] }) {
     <section className="tarjeta flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="font-semibold">Pirámide poblacional de la desnutrición</h3>
-        <span className="text-xs text-slate-500">{graficados} niños graficados</span>
+        <span className="text-xs text-slate-500">{graficados} niños graficados{totalGeneral && totalGeneral !== graficados ? ` de ${totalGeneral} en total` : ''}</span>
       </div>
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-2 text-xs font-semibold">
         <span className="text-right text-blue-800">Niños {totM} ({pct(totM)}%)</span>

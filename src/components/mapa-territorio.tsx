@@ -13,7 +13,7 @@ const CAPITALES: Record<string, string> = { CESAR: 'VALLEDUPAR', LAGUAJIRA: 'RIO
 const ESCALA = ['#dbeafe', '#93c5fd', '#3b82f6', '#1d4ed8', '#1e3a8a'];
 
 /** Mapa de Cesar, La Guajira y Magdalena: color por número de casos; clic en un municipio o departamento para filtrar. */
-export function MapaTerritorio({ conteos, valores }: { conteos: ConteoMunicipio[]; valores: { depto?: string; municipio?: string; ips?: string } }) {
+export function MapaTerritorio({ conteos, valores, totalGeneral, filtrados }: { conteos: ConteoMunicipio[]; valores: { depto?: string; municipio?: string; ips?: string }; totalGeneral: number; filtrados: number }) {
   const router = useRouter();
   const pathname = usePathname();
   const [cargando, startTransition] = useTransition();
@@ -58,6 +58,18 @@ export function MapaTerritorio({ conteos, valores }: { conteos: ConteoMunicipio[
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="font-semibold">Mapa del territorio</h3>
         <span className={`text-xs ${cargando ? 'text-marca-600' : 'text-slate-500'}`}>{cargando ? 'Actualizando…' : 'Clic en un municipio para filtrar'}</span>
+      </div>
+      <div className="flex items-center gap-3 rounded-lg bg-marca-50 px-3 py-2">
+        <div>
+          <p className="text-2xl font-bold leading-none text-marca-900">{totalGeneral}</p>
+          <p className="text-[11px] text-marca-800">niños en total (3 departamentos)</p>
+        </div>
+        {filtrados !== totalGeneral && (
+          <div className="border-l border-marca-200 pl-3">
+            <p className="text-2xl font-bold leading-none text-slate-900">{filtrados}</p>
+            <p className="text-[11px] text-slate-600">en la selección ({totalGeneral ? Math.round((filtrados / totalGeneral) * 1000) / 10 : 0}%)</p>
+          </div>
+        )}
       </div>
       <div className="flex flex-wrap gap-1 text-xs">
         {(['CESAR', 'LAGUAJIRA', 'MAGDALENA'] as const).map(kd => {
