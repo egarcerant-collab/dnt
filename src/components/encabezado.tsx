@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { cerrarSesion } from '@/app/acciones';
 import { listarMensajes, noLeidos } from '@/lib/dnt/mensajes';
 import { esEpsi, rutaInicio, type Sesion } from '@/lib/sesion';
+import { semanaDeLaBase } from '@/lib/dnt/semana';
 import { formatoFecha } from './ui';
 
 const ETIQUETA_ROL = { admin: 'Administrador', epsi: 'Funcionario EPSI', prestador: 'Prestador' } as const;
@@ -12,6 +13,7 @@ function Enlace({ href, children }: { href: string; children: React.ReactNode })
 
 export async function Encabezado({ sesion, fechaCorte, almacenamiento }: { sesion: Sesion; fechaCorte: string; almacenamiento: string }) {
   const pendientes = noLeidos(await listarMensajes(), sesion.rol, sesion.ips).length;
+  const se = await semanaDeLaBase();
 
   return (
     <header className="bg-red-600 text-white shadow">
@@ -22,7 +24,7 @@ export async function Encabezado({ sesion, fechaCorte, almacenamiento }: { sesio
             <span className="text-lg font-bold">Nutria <span className="text-sm font-normal text-white/80">· Monitoreo de Desnutrición</span></span>
             <span className="text-xs text-white/80">
               {ETIQUETA_ROL[sesion.rol]}
-              {sesion.ips ? ` · ${sesion.ips}` : ''} · Corte {formatoFecha(fechaCorte)} · Datos: {almacenamiento === 'drive' ? 'Google Drive' : 'local'}
+              {sesion.ips ? ` · ${sesion.ips}` : ''} · Semana epidemiológica {se.semana} de {se.anio} · Corte {formatoFecha(fechaCorte)} · Datos: {almacenamiento === 'drive' ? 'Google Drive' : 'local'}
             </span>
           </span>
         </Link>

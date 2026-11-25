@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { TablaPrestadores } from '@/components/admin-prestadores';
 import { CargarBase } from '@/components/cargar-base';
+import { semanaDeLaBase } from '@/lib/dnt/semana';
 import { AdminRespaldos } from '@/components/admin-respaldos';
 import { RestaurarCaso } from '@/components/gestion-caso';
 import { DESTINO_RESPALDO } from '@/lib/respaldo';
@@ -42,7 +43,7 @@ export default async function Administracion() {
       <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6">
         <h1 className="text-2xl font-bold text-marca-900">Administración</h1>
         <SolicitudesRegistro solicitudes={solicitudes} soySuperusuario={soySuperusuario} />
-        <CargarBase origen={base.origenBase} casos={base.casos.length} almacenamiento={base.almacenamiento} />
+        <CargarBase origen={base.origenBase} casos={base.casos.length} almacenamiento={base.almacenamiento} semana={await semanaDeLaBase()} />
         <AdminRespaldos destino={DESTINO_RESPALDO} cifrado={!!process.env.BACKUP_PASSWORD} />
         <TablaPrestadores prestadores={filasPrestadores} correo={{ configurado: correoConfigurado(), remitente: REMITENTE }} />
         {base.eliminados.length > 0 && (

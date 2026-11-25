@@ -3,10 +3,20 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-export function CargarBase({ origen, casos, almacenamiento }: { origen: string; casos: number; almacenamiento: string }) {
+export function CargarBase({ origen, casos, almacenamiento, semana }: { origen: string; casos: number; almacenamiento: string; semana: { semana: number; anio: number; definida: boolean } }) {
   const router = useRouter();
   const [estado, setEstado] = useState<{ ok: boolean; t: string } | null>(null);
   const [subiendo, setSubiendo] = useState(false);
+  const [eSemana, setESemana] = useState<{ ok: boolean; t: string } | null>(null);
+
+  async function guardarSemana(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const res = await fetch('/api/admin/semana', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ semana: f.get('semana'), anio: f.get('anio') }) });
+    const data = await res.json().catch(() => ({}));
+    setESemana(res.ok ? { ok: true, t: 'Semana epidemiológica guardada.' } : { ok: false, t: data.error || 'No se pudo guardar' });
+    if (res.ok) router.refresh();
+  }
 
   async function subir(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -50,6 +60,19 @@ export function CargarBase({ origen, casos, almacenamiento }: { origen: string; 
         <span className="text-xs text-slate-500">Debe contener la hoja &quot;BD seg ambulatorio DNTA&quot; · máx. 25 MB</span>
       </form>
       {estado && <p className={`text-sm ${estado.ok ? 'text-marca-700' : 'text-red-600'}`}>{estado.t}</p>}
+      <form onSubmit={guardarSemana} className="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-3 text-sm">
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta">Semana epidemiológica de la base</span>
+          <input name="semana" type="number" min={1} max={53} required defaultValue={semana.semana} className="input w-28" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="etiqueta">Año</span>
+          <input name="anio" type="number" min={2020} max={2100} required defaultValue={semana.anio} className="input w-28" />
+        </label>
+        <button className="boton-sec">Guardar semana</button>
+        <span className="text-xs text-slate-500">{semana.definida ? 'Se muestra en el encabezado y en Seguimiento.' : 'Sin definir: se muestra la semana epidemiológica en curso.'}</span>
+      </form>
+      {eSemana && <p className={`text-sm ${eSemana.ok ? 'text-marca-700' : 'text-red-600'}`}>{eSemana.t}</p>}
     </section>
   );
 }

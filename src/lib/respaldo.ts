@@ -24,6 +24,7 @@ const ARCHIVOS = [
   'ajustes-casos.json',
   'preregistro.json',
   'casos-adicionales.json',
+  'base-meta.json',
 ];
 const DIAS_RETENCION = 30;
 const MAX_ADJUNTO = 20 * 1024 * 1024;
