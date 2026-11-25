@@ -138,7 +138,6 @@ export function PanelPrestador({ filas: todas, fechaCorte }: { filas: FilaCaso[]
                 <th className="px-3 py-2">Tipo de DNT</th>
                 <th className="px-3 py-2">Estado</th>
                 <th className="px-3 py-2">Último control</th>
-                <th className="px-3 py-2">Último Z P/T</th>
                 <th className="px-3 py-2">Alertas</th>
                 <th className="px-3 py-2"></th>
               </tr>
@@ -166,7 +165,6 @@ export function PanelPrestador({ filas: todas, fechaCorte }: { filas: FilaCaso[]
                         <span className="text-xs font-semibold text-red-600">Sin controles</span>
                       )}
                     </td>
-                    <td className="px-3 py-2">{f.ultimoZ?.toFixed(2) ?? '—'}</td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-1">{f.alertas.map(a => <AlertaChip key={a} tipo={a} />)}</div>
                     </td>
@@ -177,7 +175,7 @@ export function PanelPrestador({ filas: todas, fechaCorte }: { filas: FilaCaso[]
                 );
               })}
               {!visibles.length && (
-                <tr><td colSpan={9} className="px-3 py-10 text-center text-slate-500">No hay casos en esta vista.</td></tr>
+                <tr><td colSpan={8}className="px-3 py-10 text-center text-slate-500">No hay casos en esta vista.</td></tr>
               )}
             </tbody>
           </table>
