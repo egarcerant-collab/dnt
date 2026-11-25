@@ -58,6 +58,7 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
   const datos: Array<[string, string]> = [
     ['Documento', `${caso.tipoDocumento} ${caso.documento}`],
     ['Sexo / Edad', `${caso.sexo} · ${caso.edadMeses ?? '—'} meses`],
+    ['Edad en años', edadEnAnios(caso.edadMeses)],
     ['Nacimiento', formatoFecha(caso.fechaNacimiento)],
     ['Etnia', caso.etnia || '—'],
     ['Residencia', `${caso.municipio}, ${caso.departamento}`],
@@ -250,4 +251,13 @@ function GraficoZ({ serie }: { serie: { z: number; etiqueta: string }[] }) {
       ))}
     </svg>
   );
+}
+
+/** Edad en años y meses (41 → "3 años y 5 meses"). */
+function edadEnAnios(meses: number | null): string {
+  if (meses == null) return '—';
+  const a = Math.floor(meses / 12), m = meses % 12;
+  const txtA = a === 1 ? '1 año' : `${a} años`;
+  const txtM = m === 1 ? '1 mes' : `${m} meses`;
+  return a === 0 ? txtM : m === 0 ? txtA : `${txtA} y ${txtM}`;
 }
