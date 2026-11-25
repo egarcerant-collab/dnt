@@ -228,13 +228,25 @@ function resumenPorGrupo(casos: Caso[], k: (c: Caso) => string): FilaGrupo[] {
     .sort((a, b) => b.total - a.total);
 }
 
+/** Qué mide cada indicador y cómo leerlo (se muestra al pasar el cursor por la tarjeta). */
+const AYUDA_INDICADOR: Record<string, { mide: string; lectura: string }> = {
+  recuperacion: { mide: 'Proporción de niños que salieron de la desnutrición: puntaje Z peso/talla mayor a -1 DE y criterios de egreso cumplidos.', lectura: 'Más alto es mejor. Si está bajo la meta, revise los casos en tratamiento con más tiempo en la ruta y los que no tienen estado diligenciado.' },
+  letalidad: { mide: 'Proporción de niños de la ruta que fallecieron por desnutrición u otra patología asociada.', lectura: 'Más bajo es mejor. Cada fallecido requiere unidad de análisis y ajuste en SIVIGILA (condición final 2).' },
+  oportunidad: { mide: 'Niños cuyo primer control se hizo a tiempo desde la notificación: hasta el día 3 en DNT severa y hasta el día 7 en DNT moderada.', lectura: 'Más alto es mejor. Un valor bajo indica demora del prestador en captar al niño tras la notificación.' },
+  sinSeguimiento: { mide: 'Niños que no tienen ningún control registrado, ni en el libro (columnas AY–KF) ni en la app.', lectura: 'La meta es 0. Son la prioridad de búsqueda activa del prestador.' },
+  tiempoRecuperacion: { mide: 'Mediana de días entre la notificación y la fecha de recuperación, en los recuperados que tienen ambas fechas.', lectura: 'Más bajo es mejor. Solo cuenta recuperados con fecha de recuperación diligenciada (columna AE).' },
+  perdidas: { mide: 'Niños que se perdieron del seguimiento: estado DESERTADO o BÚSQUEDA FALLIDA.', lectura: 'Más bajo es mejor. Puede estar subestimado mientras haya niños sin estado diligenciado.' },
+  completitud: { mide: 'Niños con los datos críticos completos: estado actual, clasificación nutricional, perímetro braquial y MIPRES de la FTLC.', lectura: 'Más alto es mejor. Mide la calidad del dato que reporta la red.' },
+};
+
 function TarjetaIndicador({ i }: { i: Indicador }) {
   const color = i.cumple == null ? 'border-slate-200' : i.cumple ? 'border-marca-600' : 'border-red-300';
   const punto = i.cumple == null ? 'bg-slate-300' : i.cumple ? 'bg-marca-600' : 'bg-red-500';
+  const ayuda = AYUDA_INDICADOR[i.clave];
   return (
-    <div className={`tarjeta border-l-4 p-4 ${color}`}>
+    <div tabIndex={0} className={`tarjeta group relative cursor-help border-l-4 p-4 outline-none ${color}`}>
       <div className="flex items-center justify-between">
-        <p className="etiqueta">{i.nombre}</p>
+        <p className="etiqueta">{i.nombre} <span className="ml-1 text-slate-400" aria-hidden>ⓘ</span></p>
         <span className={`h-2.5 w-2.5 rounded-full ${punto}`} />
       </div>
       <p className="mt-1 text-3xl font-bold text-slate-900">
@@ -243,10 +255,19 @@ function TarjetaIndicador({ i }: { i: Indicador }) {
       </p>
       <p className="text-xs text-slate-500">Meta {i.meta} · {i.detalle}</p>
       {i.den != null && (
-        <p className="mt-1 text-xs text-slate-600" title={i.formula}>
+        <p className="mt-1 text-xs text-slate-600">
           <b>{i.num}</b> / <b>{i.den}</b> <span className="text-slate-400">(numerador / denominador)</span>
         </p>
       )}
+      {/* Ficha del indicador al pasar el cursor (o al tocar la tarjeta en celular) */}
+      <div role="tooltip" className="pointer-events-none absolute inset-x-0 top-full z-30 mt-1 hidden rounded-lg bg-slate-900 p-3 text-xs text-white shadow-xl group-hover:block group-focus:block">
+        <p className="text-sm font-semibold">{i.nombre}</p>
+        {ayuda && <p className="mt-1"><b>Qué mide:</b> {ayuda.mide}</p>}
+        {i.formula && <p className="mt-1"><b>Fórmula:</b> {i.formula}</p>}
+        {i.den != null && <p className="mt-1"><b>Cálculo:</b> {i.num} / {i.den}{i.unidad === '%' ? ` × 100 = ${i.valor}%` : ''}</p>}
+        <p className="mt-1"><b>Meta:</b> {i.meta} · {i.cumple == null ? 'sin datos suficientes' : i.cumple ? 'cumple' : 'no cumple'}</p>
+        {ayuda && <p className="mt-1 text-slate-300">{ayuda.lectura}</p>}
+      </div>
     </div>
   );
 }
