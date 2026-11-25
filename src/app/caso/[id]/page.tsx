@@ -77,7 +77,6 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
     ['Edema', caso.edema || '—'],
     ['Perímetro braquial', caso.perimetroBraquial != null ? `${caso.perimetroBraquial} cm` : '—'],
     ['Entrega FTLC', formatoFecha(caso.fechaEntregaFtlc)],
-    ['MIPRES FTLC', caso.mipresFtlc || '—'],
     ['Fecha recuperación', formatoFecha(caso.fechaRecuperacion)],
   ];
 
