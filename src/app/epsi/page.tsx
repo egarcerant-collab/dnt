@@ -115,9 +115,15 @@ export default async function VistaEpsi({ searchParams }: { searchParams: Promis
             </ul>
             <div className="mt-5 border-t border-slate-100 pt-3 text-sm">
               <p className="etiqueta mb-1">Cruce SIVIGILA ({base.sivigila.hoja ?? '—'})</p>
-              <p>Notificados: <b>{base.sivigila.total}</b></p>
-              <p>Notificados sin seguimiento: <b className="text-red-600">{base.sivigila.sinSeguimiento}</b></p>
-              <p>Seguimiento sin notificación: <b>{alertas.NO_CRUZA_SIVIGILA ?? 0}</b></p>
+              {base.sivigila.hoja ? (
+                <>
+                  <p>Notificados: <b>{base.sivigila.total}</b></p>
+                  <p>Notificados sin seguimiento: <b className="text-red-600">{base.sivigila.sinSeguimiento}</b></p>
+                  <p>Seguimiento sin notificación: <b>{alertas.NO_CRUZA_SIVIGILA ?? 0}</b></p>
+                </>
+              ) : (
+                <p className="text-xs text-slate-500">La base cargada no trae la hoja SIVIGILA (SEM xx); el cruce no se calcula.</p>
+              )}
             </div>
           </section>
         </div>

@@ -29,7 +29,8 @@ export function ultimoControl(c: Caso): Control | null {
   return conFecha.length ? conFecha.reduce((a, b) => (b.fecha! > a.fecha! ? b : a)) : null;
 }
 
-function calcularAlertas(c: Caso, corte: string): TipoAlerta[] {
+/** hayCruce: la base trae la hoja SIVIGILA (SEM xx); sin ella no se generan alertas de cruce. */
+function calcularAlertas(c: Caso, corte: string, hayCruce: boolean): TipoAlerta[] {
   const a: TipoAlerta[] = [];
   const abierto = !ESTADOS_CERRADOS.includes(c.estado);
   const ultimo = ultimoControl(c);
@@ -37,10 +38,10 @@ function calcularAlertas(c: Caso, corte: string): TipoAlerta[] {
 
   if (abierto && c.controles.length === 0 && desdeNotif != null && desdeNotif > DIAS_SIN_CONTROL) a.push('SIN_CONTROL_4_SEMANAS');
   else if (abierto && ultimo && (dias(ultimo.fecha, corte) ?? 0) > DIAS_CONTROL_VENCIDO) a.push('CONTROL_VENCIDO');
-  if (c.estado === 'FALLECIDO' && c.condicionFinalSivigila !== '2') a.push('FALLECIDO_SIN_AJUSTE_SIVIGILA');
+  if (hayCruce && c.estado === 'FALLECIDO' && c.condicionFinalSivigila !== '2') a.push('FALLECIDO_SIN_AJUSTE_SIVIGILA');
   if (c.estado === 'SIN DILIGENCIAR') a.push('SIN_ESTADO');
   if (c.estado !== 'RECUPERADO' && ultimo && /PESO ADECUADO/.test(norm(ultimo.clasificacion))) a.push('POSIBLE_RECUPERADO');
-  if (!c.enSivigila) a.push('NO_CRUZA_SIVIGILA');
+  if (hayCruce && !c.enSivigila) a.push('NO_CRUZA_SIVIGILA');
   return a;
 }
 
@@ -85,7 +86,7 @@ export async function obtenerBase(): Promise<Base> {
   });
 
   const corte = hoyColombia();
-  casos.forEach(c => (c.alertas = calcularAlertas(c, corte)));
+  casos.forEach(c => (c.alertas = calcularAlertas(c, corte, !!excel.hojaSivigila)));
 
   const docs = new Set(casos.map(c => c.documento));
   return {
