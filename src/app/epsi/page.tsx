@@ -103,7 +103,7 @@ export default async function VistaEpsi({ searchParams }: { searchParams: Promis
           <section className="tarjeta p-4">
             <h3 className="mb-3 font-semibold">Alertas activas</h3>
             <ul className="space-y-2 text-sm">
-              {(Object.keys(ALERTAS) as TipoAlerta[]).map(a => (
+              {(Object.keys(ALERTAS) as TipoAlerta[]).filter(a => a !== 'POSIBLE_RECUPERADO').map(a => (
                 <li key={a} className="flex items-center justify-between gap-2">
                   <AlertaChip tipo={a} />
                   <span className="flex items-center gap-2">

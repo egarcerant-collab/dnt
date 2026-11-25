@@ -40,7 +40,7 @@ function calcularAlertas(c: Caso, corte: string, hayCruce: boolean): TipoAlerta[
   else if (abierto && ultimo && (dias(ultimo.fecha, corte) ?? 0) > DIAS_CONTROL_VENCIDO) a.push('CONTROL_VENCIDO');
   if (hayCruce && c.estado === 'FALLECIDO' && c.condicionFinalSivigila !== '2') a.push('FALLECIDO_SIN_AJUSTE_SIVIGILA');
   if (c.estado === 'SIN DILIGENCIAR') a.push('SIN_ESTADO');
-  if (c.estado !== 'RECUPERADO' && ultimo && /PESO ADECUADO/.test(norm(ultimo.clasificacion))) a.push('POSIBLE_RECUPERADO');
+  // Alerta POSIBLE_RECUPERADO desactivada a solicitud de la EPSI (no se muestra)
   if (hayCruce && !c.enSivigila) a.push('NO_CRUZA_SIVIGILA');
   return a;
 }
