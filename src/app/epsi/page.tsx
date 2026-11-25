@@ -74,7 +74,7 @@ export default async function VistaEpsi({ searchParams }: { searchParams: Promis
         <section>
           <h2 className="mb-3 text-lg font-semibold">Indicadores trazadores</h2>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {indicadores.map(i => <TarjetaIndicador key={i.clave} i={i} />)}
+            {indicadores.filter(i => !OCULTOS.includes(i.clave)).map(i => <TarjetaIndicador key={i.clave} i={i} />)}
           </div>
         </section>
 
@@ -227,6 +227,9 @@ function resumenPorGrupo(casos: Caso[], k: (c: Caso) => string): FilaGrupo[] {
     })
     .sort((a, b) => b.total - a.total);
 }
+
+/** Indicadores que no se muestran en las tarjetas (siguen calculándose). */
+const OCULTOS = ['completitud'];
 
 /** Qué mide cada indicador y cómo leerlo (se muestra al pasar el cursor por la tarjeta). */
 const AYUDA_INDICADOR: Record<string, { mide: string; lectura: string }> = {
