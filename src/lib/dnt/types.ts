@@ -105,6 +105,7 @@ export interface Caso {
   controles: Control[];
   enSivigila: boolean;
   condicionFinalSivigila: string | null;
+  upgdNotifica: string | null; // nom_upgd de SIVIGILA: UPGD que notificó el evento 113
   alertas: TipoAlerta[];
 }
 

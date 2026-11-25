@@ -81,6 +81,7 @@ export async function obtenerBase(): Promise<Base> {
       ipsAtencionPrimaria: reg?.ipsAtencionPrimaria ?? base.ipsAtencionPrimaria,
       enSivigila: !!siv,
       condicionFinalSivigila: siv?.condicionFinal ?? null,
+      upgdNotifica: siv?.upgd || null,
       alertas: [],
     };
   });

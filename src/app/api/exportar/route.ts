@@ -55,6 +55,7 @@ export async function GET(req: Request) {
       'Última clasificación': u?.clasificacion ?? null,
       'Último Z P/T': u?.zPesoTalla ?? null,
       'En SIVIGILA': c.enSivigila ? 'SI' : 'NO',
+      'UPGD que notifica (SIVIGILA)': c.upgdNotifica ?? '',
       'Alertas': c.alertas.map(a => ALERTAS[a].titulo).join(' | '),
     };
   });

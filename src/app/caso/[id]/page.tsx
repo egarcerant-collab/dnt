@@ -66,6 +66,7 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
     ['IPSI primer nivel', caso.ipsPrimerNivel || caso.ipsSeguimiento],
     ['Prestador seguimiento DNT', caso.ipsSeguimiento],
     ['Notificación', `${formatoFecha(caso.fechaNotificacion)} · SE ${caso.semanaEpi ?? '—'}`],
+    ['UPGD que notifica', caso.upgdNotifica || '—'],
     ['SIVIGILA', caso.enSivigila ? `Cruza · condición final ${caso.condicionFinalSivigila === '2' ? 'muerto' : 'vivo'}` : 'No cruza'],
   ];
   const ingreso: Array<[string, string]> = [

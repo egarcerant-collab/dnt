@@ -143,13 +143,13 @@ function edadMeses(nac: string | null, ref: string | null): number | null {
   return m >= 0 ? Math.floor(m) : null;
 }
 
-export type CasoBase = Omit<Caso, 'alertas' | 'enSivigila' | 'condicionFinalSivigila'>;
+export type CasoBase = Omit<Caso, 'alertas' | 'enSivigila' | 'condicionFinalSivigila' | 'upgdNotifica'>;
 
 export interface UpgdSivigila { nombre: string; nit: string }
 
 export interface DatosExcel {
   casos: CasoBase[];
-  sivigila: Map<string, { condicionFinal: string }>;
+  sivigila: Map<string, { condicionFinal: string; upgd: string }>;
   hojaSivigila: string | null;
   /** Fila original A..KF de cada caso, para reconstruir la matriz al exportar. */
   filas: Map<string, unknown[]>;
@@ -293,13 +293,13 @@ function procesarLibro(contenido: Buffer, origen: DatosExcel['origen']): DatosEx
   });
 
   const hojaSivigila = wb.SheetNames.find(n => /^SEM \d+$/.test(n)) ?? null;
-  const sivigila = new Map<string, { condicionFinal: string }>();
+  const sivigila = new Map<string, { condicionFinal: string; upgd: string }>();
   const upgd: UpgdSivigila[] = [];
   if (hojaSivigila) {
     XLSX.utils
       .sheet_to_json<Record<string, unknown>>(wb.Sheets[hojaSivigila], { defval: null, raw: false })
       .forEach(r => {
-        sivigila.set(texto(r.num_ide_), { condicionFinal: texto(r.con_fin_) });
+        sivigila.set(texto(r.num_ide_), { condicionFinal: texto(r.con_fin_), upgd: texto(r.nom_upgd) });
         if (r.nom_upgd && r.nit_upgd) upgd.push({ nombre: texto(r.nom_upgd), nit: texto(r.nit_upgd).replace(/\D/g, '') });
       });
   }
