@@ -3,13 +3,12 @@ import { cerrarSesion } from '@/app/acciones';
 import { listarMensajes, noLeidos } from '@/lib/dnt/mensajes';
 import { esEpsi, rutaInicio, type Sesion } from '@/lib/sesion';
 import { semanaDeLaBase } from '@/lib/dnt/semana';
+import { EnlaceNav } from './enlace-nav';
 import { formatoFecha } from './ui';
 
 const ETIQUETA_ROL = { admin: 'Administrador', epsi: 'Funcionario EPSI', prestador: 'Prestador' } as const;
 
-function Enlace({ href, children }: { href: string; children: React.ReactNode }) {
-  return <Link href={href} className="relative rounded-md px-3 py-1.5 hover:bg-white/10">{children}</Link>;
-}
+const Enlace = EnlaceNav;
 
 export async function Encabezado({ sesion, fechaCorte, almacenamiento }: { sesion: Sesion; fechaCorte: string; almacenamiento: string }) {
   const pendientes = noLeidos(await listarMensajes(), sesion.rol, sesion.ips).length;
@@ -36,7 +35,7 @@ export async function Encabezado({ sesion, fechaCorte, almacenamiento }: { sesio
           <Enlace href="/notificaciones">
             Notificaciones
             {pendientes > 0 && (
-              <span className="ml-1.5 rounded-full bg-white px-1.5 py-0.5 text-[11px] font-bold text-red-700">{pendientes}</span>
+              <span className="ml-1.5 rounded-full bg-amber-300 px-1.5 py-0.5 text-[11px] font-bold text-red-900">{pendientes}</span>
             )}
           </Enlace>
           {sesion.rol === 'admin' && (
