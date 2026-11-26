@@ -90,7 +90,7 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
             <h1 className="mt-1 text-2xl font-bold">{caso.nombre}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <SeveridadBadge severidad={caso.severidad} />
-              <EstadoBadge estado={caso.estado} z={ultimoZ(caso)} />
+              <EstadoBadge estado={caso.estado} z={ultimoZ(caso)} clave={caso.semaforoExcel} />
               {caso.alertas.map(a => <AlertaChip key={a} tipo={a} />)}
             </div>
           </div>

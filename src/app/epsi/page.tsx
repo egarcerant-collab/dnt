@@ -157,7 +157,7 @@ export default async function VistaEpsi({ searchParams }: { searchParams: Promis
                   <td className="px-3 py-2">{c.municipio}</td>
                   <td className="px-3 py-2 text-xs">{c.ipsSeguimiento}</td>
                   <td className="px-3 py-2"><SeveridadBadge severidad={c.severidad} /></td>
-                  <td className="px-3 py-2"><EstadoBadge estado={c.estado} z={ultimoZ(c)} /></td>
+                  <td className="px-3 py-2"><EstadoBadge estado={c.estado} z={ultimoZ(c)} clave={c.semaforoExcel} /></td>
                   <td className="px-3 py-2 whitespace-nowrap">{formatoFecha(c.fechaNotificacion)}</td>
                   <td className="px-3 py-2"><div className="flex flex-wrap gap-1">{c.alertas.map(a => <AlertaChip key={a} tipo={a} />)}</div></td>
                 </tr>

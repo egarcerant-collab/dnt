@@ -2,8 +2,8 @@ import { ORDEN_SEMAFORO, SEMAFORO, semaforoDe, type ClaveSemaforo } from '@/lib/
 import { ALERTAS, type Estado, type Severidad, type TipoAlerta } from '@/lib/dnt/types';
 
 /** Estado actual con el color de la semaforización oficial. `z` = último puntaje Z (distingue recuperado en riesgo). */
-export function EstadoBadge({ estado, z }: { estado: Estado | string; z?: number | null }) {
-  const s = semaforoDe(estado, z);
+export function EstadoBadge({ estado, z, clave }: { estado: Estado | string; z?: number | null; clave?: string | null }) {
+  const s = (clave && SEMAFORO[clave as ClaveSemaforo]) || semaforoDe(estado, z);
   return (
     <span
       title={`${estado} · ${s.descripcion}`}

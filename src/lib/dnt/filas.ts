@@ -1,3 +1,5 @@
+import { semaforoCaso } from './filtros';
+import type { ClaveSemaforo } from './semaforo';
 import type { Caso, Estado, Severidad, TipoAlerta } from './types';
 
 /** Proyección liviana de un caso para enviar a componentes de cliente. */
@@ -13,6 +15,7 @@ export interface FilaCaso {
   ips: string;
   severidad: Severidad;
   estado: Estado;
+  semaforo: ClaveSemaforo;
   fechaNotificacion: string | null;
   ultimoControl: string | null;
   ultimaClasificacion: string;
@@ -36,6 +39,7 @@ export function aFila(c: Caso): FilaCaso {
     ips: c.ipsSeguimiento,
     severidad: c.severidad,
     estado: c.estado,
+    semaforo: semaforoCaso(c).clave,
     fechaNotificacion: c.fechaNotificacion,
     ultimoControl: ultimo?.fecha ?? null,
     ultimaClasificacion: ultimo?.clasificacion ?? c.clasificacionIngreso,

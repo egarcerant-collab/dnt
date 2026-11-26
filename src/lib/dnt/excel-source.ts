@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import * as XLSX from 'xlsx';
 import { departamentoCanonico, ipsCanonica, municipioCanonico } from './catalogo';
+import { semaforoDeColor } from './semaforo';
 import type { Caso, ClasificacionNutricional, Control, Estado, Severidad } from './types';
 
 const HOJA_SEGUIMIENTO = 'BD seg ambulatorio DNTA';
@@ -237,9 +238,19 @@ function procesarLibro(contenido: Buffer, origen: DatosExcel['origen']): DatosEx
   // Solo se leen las hojas que usa la app
   const nombres = XLSX.read(contenido, { bookSheets: true }).SheetNames;
   const hojaSem = nombres.find(n => /^SEM \d+$/.test(n));
-  const wb = XLSX.read(contenido, { cellDates: true, sheets: [HOJA_SEGUIMIENTO, ...(hojaSem ? [hojaSem] : [])] });
-  const filas = XLSX.utils
-    .sheet_to_json<unknown[]>(wb.Sheets[HOJA_SEGUIMIENTO], { header: 1, defval: null, raw: true, range: rangoMatriz(wb.Sheets[HOJA_SEGUIMIENTO]) })
+  // cellStyles: el color de relleno de cada fila define el semáforo (hoja SEMÁFORO del libro)
+  const wb = XLSX.read(contenido, { cellDates: true, cellStyles: true, sheets: [HOJA_SEGUIMIENTO, ...(hojaSem ? [hojaSem] : [])] });
+  const hojaSeg = wb.Sheets[HOJA_SEGUIMIENTO];
+  const colorFila = (r: unknown[]): string | null => {
+    const fila = filaDe.get(r);
+    if (fila == null) return null;
+    const celda = hojaSeg[XLSX.utils.encode_cell({ r: fila, c: COL.id })] as { s?: { fgColor?: { rgb?: string } } } | undefined;
+    return semaforoDeColor(celda?.s?.fgColor?.rgb);
+  };
+  const todas = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[HOJA_SEGUIMIENTO], { header: 1, defval: null, raw: true, range: rangoMatriz(wb.Sheets[HOJA_SEGUIMIENTO]) });
+  // Índice de cada fila en la hoja (el rango empieza en la fila 1, así que índice = fila - 1)
+  const filaDe = new Map(todas.map((r, i) => [r, i] as const));
+  const filas = todas
     .slice(FILA_INICIO_DATOS)
     .filter(r => r[COL.id] != null);
 
@@ -289,6 +300,7 @@ function procesarLibro(contenido: Buffer, origen: DatosExcel['origen']): DatosEx
       fechaRecuperacion: fechaISO(r[COL.fechaRecup]),
       ipsAtencionPrimaria: texto(r[COL.ipsAtencionPrimaria]),
       controles: leerControles(r),
+      semaforoExcel: colorFila(r),
     };
   });
 

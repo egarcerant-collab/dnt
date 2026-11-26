@@ -79,6 +79,8 @@ export async function obtenerBase(): Promise<Base> {
       estado: reg?.estado ?? base.estado,
       fechaRecuperacion: reg?.fechaRecuperacion ?? base.fechaRecuperacion,
       ipsAtencionPrimaria: reg?.ipsAtencionPrimaria ?? base.ipsAtencionPrimaria,
+      // El color del libro manda, salvo que el prestador haya registrado un estado nuevo en la app
+      semaforoExcel: reg?.estado ? null : base.semaforoExcel ?? null,
       enSivigila: !!siv,
       condicionFinalSivigila: siv?.condicionFinal ?? null,
       upgdNotifica: siv?.upgd || null,

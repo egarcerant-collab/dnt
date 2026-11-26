@@ -60,6 +60,33 @@ export const ORDEN_SEMAFORO: ClaveSemaforo[] = [
   'FALLECIDO', 'SIN_TRATAMIENTO', 'EN_TRATAMIENTO', 'RECUPERADO', 'RIESGO_DNT', 'DESCARTADO', 'REINCIDENTE',
 ];
 
+/** Color de relleno oficial de cada fila del libro → semáforo. */
+const COLORES_LIBRO: [string, ClaveSemaforo][] = [
+  ['92D050', 'RECUPERADO'],
+  ['84E4AF', 'RIESGO_DNT'],
+  ['FF0000', 'FALLECIDO'],
+  ['FFFF00', 'EN_TRATAMIENTO'],
+  ['FFC000', 'SIN_TRATAMIENTO'],
+  ['F7CAAC', 'REINCIDENTE'],
+  ['00B0F0', 'DESCARTADO'],
+];
+
+/** Semáforo del color más parecido (tolera tonos cercanos); null si la celda no tiene color reconocible. */
+export function semaforoDeColor(rgb: string | undefined | null): ClaveSemaforo | null {
+  const hex = (rgb ?? '').replace(/^#/, '').slice(-6).toUpperCase();
+  if (!/^[0-9A-F]{6}$/.test(hex)) return null;
+  const v = (h: string) => [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16));
+  const [r, g, b] = v(hex);
+  let mejor: ClaveSemaforo | null = null;
+  let dist = 140; // distancia máxima aceptada
+  for (const [color, clave] of COLORES_LIBRO) {
+    const [r2, g2, b2] = v(color);
+    const d = Math.hypot(r - r2, g - g2, b - b2);
+    if (d < dist) { dist = d; mejor = clave; }
+  }
+  return mejor;
+}
+
 /** Asigna el semáforo según el estado y, para recuperados, el último puntaje Z peso/talla. */
 export function semaforoDe(estado: Estado | string, ultimoZ?: number | null): Semaforo {
   switch (estado) {

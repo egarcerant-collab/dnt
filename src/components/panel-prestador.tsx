@@ -32,7 +32,7 @@ export function PanelPrestador({ filas: todas, fechaCorte }: { filas: FilaCaso[]
   );
 
   const activos = filas.filter(f => !CERRADOS.includes(f.estado));
-  const claveDe = (f: FilaCaso) => semaforoDe(f.estado, f.ultimoZ).clave;
+  const claveDe = (f: FilaCaso) => f.semaforo;
   const conteoSem = useMemo(() => {
     const c = {} as Record<ClaveSemaforo, number>;
     filas.forEach(f => (c[claveDe(f)] = (c[claveDe(f)] ?? 0) + 1));
@@ -154,7 +154,7 @@ export function PanelPrestador({ filas: todas, fechaCorte }: { filas: FilaCaso[]
                     <td className="px-3 py-2">{f.edadMeses != null ? `${f.edadMeses} m` : '—'}</td>
                     <td className="px-3 py-2">{f.municipio}</td>
                     <td className="px-3 py-2"><SeveridadBadge severidad={f.severidad} /></td>
-                    <td className="px-3 py-2"><EstadoBadge estado={f.estado} z={f.ultimoZ} /></td>
+                    <td className="px-3 py-2"><EstadoBadge estado={f.estado} z={f.ultimoZ} clave={f.semaforo} /></td>
                     <td className="px-3 py-2">
                       {f.ultimoControl ? (
                         <>

@@ -1,4 +1,4 @@
-import { semaforoDe } from './semaforo';
+import { SEMAFORO, semaforoDe, type ClaveSemaforo } from './semaforo';
 import type { Caso, TipoAlerta } from './types';
 
 export interface FiltrosCasos {
@@ -21,7 +21,9 @@ export function ultimoZ(c: Caso): number | null {
   return conFecha.at(-1)?.zPesoTalla ?? c.zIngreso;
 }
 
-export const semaforoCaso = (c: Caso) => semaforoDe(c.estado, ultimoZ(c));
+/** Semáforo del caso: color de la fila en el libro; si no tiene (o el estado se cambió en la app), según estado y último Z. */
+export const semaforoCaso = (c: Caso) =>
+  (c.semaforoExcel && SEMAFORO[c.semaforoExcel as ClaveSemaforo]) || semaforoDe(c.estado, ultimoZ(c));
 
 /** Grupo por número de controles registrados (AY..KF + app). */
 export function grupoControles(c: Caso): string {

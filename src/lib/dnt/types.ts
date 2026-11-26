@@ -104,6 +104,8 @@ export interface Caso {
   estado: Estado;
   fechaRecuperacion: string | null;
   ipsAtencionPrimaria: string; // columna AX
+  /** Semáforo según el color de relleno de la fila en el libro (clave de SEMAFORO); null si el prestador ya cambió el estado en la app. */
+  semaforoExcel?: string | null;
   controles: Control[];
   enSivigila: boolean;
   condicionFinalSivigila: string | null;

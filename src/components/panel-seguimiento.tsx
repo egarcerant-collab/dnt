@@ -273,7 +273,7 @@ function FilaNino({ f, abierto, onToggle }: { f: FilaTraza; abierto: boolean; on
         <td className="px-3 py-2 whitespace-nowrap"><span className="rounded bg-marca-50 px-1.5 py-0.5 text-xs font-bold text-marca-700">{f.tipoDocumento}</span> {f.documento}</td>
         <td className="px-3 py-2 font-medium">{f.nombre}</td>
         <td className="px-3 py-2 text-xs">{f.municipio}<span className="block text-slate-500">{f.ips}</span></td>
-        <td className="px-3 py-2 text-xs"><EstadoBadge estado={f.estado} z={f.ultimoZ} /><span className="mt-1 block text-slate-500">{f.clasificacion}</span></td>
+        <td className="px-3 py-2 text-xs"><EstadoBadge estado={f.estado} z={f.ultimoZ} clave={f.semaforo} /><span className="mt-1 block text-slate-500">{f.clasificacion}</span></td>
         <td className="px-3 py-2 text-center">{f.controlesExcel} · <b className={f.controlesApp ? 'text-marca-700' : 'text-slate-400'}>{f.controlesApp}</b></td>
         <td className="px-3 py-2 text-xs">
           {f.ultimoRegistroApp ? (
