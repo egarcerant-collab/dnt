@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ESTADOS, MANEJOS, MAX_CONTROLES, NOMBRE_CONTROL, TRATAMIENTOS, type Estado } from '@/lib/dnt/types';
+import { edadMesesEn, zPesoTalla } from '@/lib/dnt/oms';
 import { hoyColombia } from '@/lib/fecha';
 import { ACEPTA_HC, MB, TAMANO_MAX_HC, subirHistoria } from './subir-historia';
 
@@ -57,7 +58,9 @@ export function FormAtencionPrimaria({ casoId, valor }: { casoId: string; valor:
 }
 
 /** Siguiente bloque de control (columnas AY..KF del libro de prestadores). */
-export function FormControl({ casoId, profesional, ips, estadoActual, numeroSiguiente, conFechaFtlc }: {
+export function FormControl({ casoId, profesional, ips, estadoActual, numeroSiguiente, conFechaFtlc, sexo, fechaNacimiento }: {
+  sexo: string;
+  fechaNacimiento: string | null;
   casoId: string;
   profesional: string;
   ips: string;
@@ -71,6 +74,11 @@ export function FormControl({ casoId, profesional, ips, estadoActual, numeroSigu
   const [z, setZ] = useState('');
   const [progreso, setProgreso] = useState<number | null>(null);
   const [tratamiento, setTratamiento] = useState('');
+  const [medidas, setMedidas] = useState({ fecha: hoyColombia(), peso: '', talla: '' });
+  const [zManual, setZManual] = useState(false);
+  // Z calculado con las tablas OMS a partir del peso, la talla, el sexo y la edad en la fecha de consulta
+  const zOms = zPesoTalla({ peso: num(medidas.peso), talla: num(medidas.talla), sexo, edadMeses: edadMesesEn(fechaNacimiento, medidas.fecha) });
+  if (!zManual && zOms != null && z !== String(zOms)) setZ(String(zOms));
   const zNum = parseFloat(z.replace(',', '.'));
   const sugerida = Number.isFinite(zNum) ? clasificarZ(zNum) : '';
   const hoy = hoyColombia();
@@ -117,6 +125,8 @@ export function FormControl({ casoId, profesional, ips, estadoActual, numeroSigu
       form.reset();
       setZ('');
       setTratamiento('');
+      setZManual(false);
+      setMedidas({ fecha: hoyColombia(), peso: '', talla: '' });
       router.refresh();
     } catch (err) {
       const msg = (err as Error).message;
@@ -143,11 +153,12 @@ export function FormControl({ casoId, profesional, ips, estadoActual, numeroSigu
 
       <fieldset className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <legend className="mb-2 text-sm font-semibold text-slate-700">Antropometría</legend>
-        <Campo label="Fecha de consulta *"><input type="date" name="fecha" max={hoy} defaultValue={hoy} required className="input" /></Campo>
-        <Campo label="Peso en kilos (un decimal) *"><input name="peso" inputMode="decimal" required pattern="\d{1,2}([.,]\d)?" placeholder="Ej: 9.4" className="input" /></Campo>
-        <Campo label="Talla en cm (un decimal) *"><input name="talla" inputMode="decimal" required pattern="\d{2,3}([.,]\d)?" placeholder="Ej: 78.5" className="input" /></Campo>
+        <Campo label="Fecha de consulta *"><input type="date" name="fecha" max={hoy} defaultValue={hoy} required className="input" onChange={e => setMedidas(m => ({ ...m, fecha: e.target.value }))} /></Campo>
+        <Campo label="Peso en kilos (un decimal) *"><input name="peso" onChange={e => setMedidas(m => ({ ...m, peso: e.target.value }))} inputMode="decimal" required pattern="\d{1,2}([.,]\d)?" placeholder="Ej: 9.4" className="input" /></Campo>
+        <Campo label="Talla en cm (un decimal) *"><input name="talla" onChange={e => setMedidas(m => ({ ...m, talla: e.target.value }))} inputMode="decimal" required pattern="\d{2,3}([.,]\d)?" placeholder="Ej: 78.5" className="input" /></Campo>
         <Campo label="Puntaje Z (peso/talla) *">
-          <input value={z} onChange={e => setZ(e.target.value)} inputMode="decimal" required pattern="-?\d([.,]\d{1,4})?" placeholder="Ej: -2.35" className="input" />
+          <input value={z} onChange={e => { setZManual(true); setZ(e.target.value); }} inputMode="decimal" required pattern="-?\d([.,]\d{1,4})?" placeholder="Ej: -2.35" className="input" />
+          {zOms != null && <span className="text-xs text-slate-500">Calculado con tablas OMS: <b>{zOms}</b>{zManual && String(zOms) !== z ? ' (modificado a mano)' : ''}</span>}
         </Campo>
         <Campo label="Clasificación (peso/talla)">
           <input name="clasificacion" placeholder={sugerida || 'Se sugiere con el Z'} className="input" />

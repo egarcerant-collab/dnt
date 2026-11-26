@@ -1,5 +1,7 @@
 import { faltaPreregistro } from '@/lib/prestadores';
 import Link from 'next/link';
+import { GraficaOms, type PuntoOms } from '@/components/grafica-oms';
+import { edadMesesEn, zPesoTalla } from '@/lib/dnt/oms';
 import { notFound, redirect } from 'next/navigation';
 import { Encabezado } from '@/components/encabezado';
 import { GestionCaso } from '@/components/gestion-caso';
@@ -54,6 +56,16 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
     { fecha: caso.fechaNotificacion, z: caso.zIngreso, etiqueta: 'Ingreso' },
     ...caso.controles.map(k => ({ fecha: k.fecha, z: k.zPesoTalla, etiqueta: `C${k.numero}` })),
   ].filter(p => p.z != null && Math.abs(p.z) < 8) as { fecha: string | null; z: number; etiqueta: string }[];
+
+  // Mediciones para la curva OMS: ingreso (fecha de notificación) y cada control con peso y talla
+  const punto = (etiqueta: string, fecha: string | null, peso: number | null, talla: number | null): PuntoOms => {
+    const edadMeses = edadMesesEn(caso.fechaNacimiento, fecha);
+    return { etiqueta, fecha, edadMeses, peso, talla, z: peso && talla ? zPesoTalla({ peso, talla, sexo: caso.sexo, edadMeses }) : null };
+  };
+  const puntosOms: PuntoOms[] = [
+    punto('Ingreso', caso.fechaNotificacion, caso.pesoIngreso, caso.tallaIngreso),
+    ...caso.controles.filter(k => k.fecha).sort((a, b) => a.fecha!.localeCompare(b.fecha!)).map(k => punto(`C${k.numero}`, k.fecha, k.peso, k.talla)),
+  ];
 
   const datos: Array<[string, string]> = [
     ['Documento', `${caso.tipoDocumento} ${caso.documento}`],
@@ -120,6 +132,14 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
           </section>
         </div>
 
+        <section className="tarjeta flex flex-col gap-3 p-4">
+          <div>
+            <h2 className="font-semibold">Curva de crecimiento OMS · peso para la longitud/talla</h2>
+            <p className="text-xs text-slate-500">Patrones de crecimiento infantil de la OMS (método LMS, igual que WHO Anthro). Menores de 2 años: longitud (acostado); de 2 a 5 años: talla (de pie). Pase el cursor por cada punto para ver el puntaje Z.</p>
+          </div>
+          <GraficaOms sexo={caso.sexo} puntos={puntosOms} />
+        </section>
+
         <section className="tarjeta overflow-x-auto">
           <h2 className="border-b border-slate-100 p-4 font-semibold">Controles ({caso.controles.length})</h2>
           <table className="w-full text-sm">
@@ -177,6 +197,8 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
             estadoActual={caso.estado}
             numeroSiguiente={numeroSiguiente}
             conFechaFtlc={conFechaFtlc}
+            sexo={caso.sexo}
+            fechaNacimiento={caso.fechaNacimiento}
           />
         )}
 
