@@ -127,7 +127,7 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
               <tr>
                 <th className="px-3 py-2">#</th><th className="px-3 py-2">Fecha</th><th className="px-3 py-2">Peso</th>
                 <th className="px-3 py-2">Talla</th><th className="px-3 py-2">Z P/T</th><th className="px-3 py-2">Clasificación</th>
-                <th className="px-3 py-2">Energía FTLC</th><th className="px-3 py-2">Medicamento</th>
+                <th className="px-3 py-2">Manejo / Tratamiento</th><th className="px-3 py-2">Energía FTLC</th><th className="px-3 py-2">Medicamento</th>
                 <th className="px-3 py-2">Resultado</th><th className="px-3 py-2">Observaciones</th><th className="px-3 py-2">IPS / Profesional</th><th className="px-3 py-2">HC</th><th className="px-3 py-2">Origen</th>
               </tr>
             </thead>
@@ -140,6 +140,7 @@ export default async function DetalleCaso({ params }: { params: Promise<{ id: st
                   <td className="px-3 py-2">{k.talla ?? '—'}</td>
                   <td className="px-3 py-2">{k.zPesoTalla?.toFixed(2) ?? '—'}</td>
                   <td className="px-3 py-2">{k.clasificacion || '—'}</td>
+                  <td className="px-3 py-2 text-xs">{k.manejo || '—'}<span className="block text-slate-500">{k.tratamiento || ''}</span></td>
                   <td className="px-3 py-2 text-xs">{k.energia || '—'}</td>
                   <td className="px-3 py-2 text-xs">{k.medicamento || '—'}</td>
                   <td className="max-w-xs px-3 py-2 text-xs text-slate-600">{k.resultado || '—'}</td>

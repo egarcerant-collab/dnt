@@ -47,6 +47,8 @@ export interface Control {
   ips: string; // IPS que realiza el seguimiento
   observaciones: string;
   profesional: string; // profesional que presta la atención (extramural/intramural)
+  manejo?: string; // manejo actual (formulario SIVIGILA de seguimiento)
+  tratamiento?: string; // tratamiento: lactancia/relactancia, FTLC u otro (¿cuál?)
   origen: 'excel' | 'app';
   registradoPor?: string;
   registradoEn?: string;
@@ -124,8 +126,16 @@ export interface NuevoControlInput {
   ips: string;
   observaciones: string;
   profesional: string;
+  manejo?: string;
+  tratamiento?: string;
   estado?: Estado;
 }
+
+/** Manejo actual del niño (lista del formulario de seguimiento SIVIGILA). */
+export const MANEJOS = ['EN BÚSQUEDA ACTIVA', 'EN TRATAMIENTO AMBULATORIO', 'EN TRATAMIENTO HOSPITALARIO', 'CONTACTO NO EFECTIVO'] as const;
+
+/** Tratamiento (lista del formulario de seguimiento SIVIGILA); OTRO exige indicar cuál. */
+export const TRATAMIENTOS = ['MENOR DE 6 MESES: LACTANCIA MATERNA EXCLUSIVA - RELACTANCIA', 'FTLC', 'OTRO'] as const;
 
 export const MAX_CONTROLES = 19;
 

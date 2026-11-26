@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { casoVigente } from '@/lib/dnt/ajustes';
 import { registrarAtencionPrimaria, registrarControl } from '@/lib/dnt/repositorio';
-import { ESTADOS, type Estado, type NuevoControlInput } from '@/lib/dnt/types';
+import { ESTADOS, MANEJOS, TRATAMIENTOS, type Estado, type NuevoControlInput } from '@/lib/dnt/types';
 import { hoyColombia } from '@/lib/fecha';
 import { getSesion } from '@/lib/sesion';
 
@@ -18,6 +18,9 @@ function validar(b: any): NuevoControlInput | string {
   if (!txt(b.resultado, 1).length) return 'Describe el resultado del seguimiento';
   if (!txt(b.profesional, 1).length) return 'Indica el profesional que presta la atención';
   if (b.estado && !ESTADOS.includes(b.estado)) return 'Estado inválido';
+  if (b.manejo && !(MANEJOS as readonly string[]).includes(b.manejo)) return 'Manejo actual inválido';
+  if (b.tratamiento && !(TRATAMIENTOS as readonly string[]).includes(b.tratamiento)) return 'Tratamiento inválido';
+  if (b.tratamiento === 'OTRO' && !txt(b.tratamientoOtro, 1).length) return 'Indica cuál es el otro tratamiento';
   return {
     fecha: b.fecha,
     peso: b.peso,
@@ -32,6 +35,8 @@ function validar(b: any): NuevoControlInput | string {
     ips: txt(b.ips, 150),
     observaciones: txt(b.observaciones, 1500),
     profesional: txt(b.profesional, 150),
+    manejo: txt(b.manejo, 60) || undefined,
+    tratamiento: b.tratamiento === 'OTRO' ? `OTRO: ${txt(b.tratamientoOtro, 200)}` : txt(b.tratamiento, 80) || undefined,
     estado: b.estado as Estado | undefined,
   };
 }

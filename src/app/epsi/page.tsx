@@ -94,10 +94,7 @@ export default async function VistaEpsi({ searchParams }: { searchParams: Promis
             </details>
           </section>
           <section className="tarjeta p-4">
-            <h3 className="mb-3 font-semibold">Clasificación nutricional</h3>
-            <Barras datos={contar(casos, c => c.clasificacionNutricional)} total={casos.length} exportar={k => urlExportar({ clasificacion: k })} />
-            <p className="mt-2 text-xs text-slate-500">{casos.filter(c => c.clasificacionPorZ).length} casos sin clasificación escrita se clasificaron por su Z-score de ingreso.</p>
-            <h3 className="mb-3 mt-5 font-semibold">Grupo de edad</h3>
+            <h3 className="mb-3 font-semibold">Grupo de edad</h3>
             <Barras datos={contar(casos, grupoEdad)} total={casos.length} exportar={k => urlExportar({ edad: k })} />
           </section>
           <section className="tarjeta p-4">

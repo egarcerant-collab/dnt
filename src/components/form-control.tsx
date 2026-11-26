@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { ESTADOS, MAX_CONTROLES, NOMBRE_CONTROL, type Estado } from '@/lib/dnt/types';
+import { ESTADOS, MANEJOS, MAX_CONTROLES, NOMBRE_CONTROL, TRATAMIENTOS, type Estado } from '@/lib/dnt/types';
 import { hoyColombia } from '@/lib/fecha';
 import { ACEPTA_HC, MB, TAMANO_MAX_HC, subirHistoria } from './subir-historia';
 
@@ -70,6 +70,7 @@ export function FormControl({ casoId, profesional, ips, estadoActual, numeroSigu
   const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string } | null>(null);
   const [z, setZ] = useState('');
   const [progreso, setProgreso] = useState<number | null>(null);
+  const [tratamiento, setTratamiento] = useState('');
   const zNum = parseFloat(z.replace(',', '.'));
   const sugerida = Number.isFinite(zNum) ? clasificarZ(zNum) : '';
   const hoy = hoyColombia();
@@ -104,6 +105,9 @@ export function FormControl({ casoId, profesional, ips, estadoActual, numeroSigu
         ips: fd.get('ips'),
         observaciones: fd.get('observaciones'),
         profesional: fd.get('profesional'),
+        manejo: fd.get('manejo') || undefined,
+        tratamiento: fd.get('tratamiento') || undefined,
+        tratamientoOtro: fd.get('tratamientoOtro'),
         estado: fd.get('estado') || undefined,
       });
       numero = r.numero ?? numeroSiguiente;
@@ -112,6 +116,7 @@ export function FormControl({ casoId, profesional, ips, estadoActual, numeroSigu
       setMensaje({ ok: true, texto: `Control ${numero} guardado con su historia clínica.` });
       form.reset();
       setZ('');
+      setTratamiento('');
       router.refresh();
     } catch (err) {
       const msg = (err as Error).message;
@@ -152,6 +157,21 @@ export function FormControl({ casoId, profesional, ips, estadoActual, numeroSigu
 
       <fieldset className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <legend className="mb-2 text-sm font-semibold text-slate-700">Tratamiento</legend>
+        <Campo label="Manejo actual">
+          <select name="manejo" defaultValue="" className="input">
+            <option value="">Seleccione…</option>
+            {MANEJOS.map(m => <option key={m} value={m}>{m.charAt(0) + m.slice(1).toLowerCase()}</option>)}
+          </select>
+        </Campo>
+        <Campo label="Tratamiento">
+          <select name="tratamiento" value={tratamiento} onChange={e => setTratamiento(e.target.value)} className="input">
+            <option value="">Seleccione…</option>
+            {TRATAMIENTOS.map(t => <option key={t} value={t}>{t === 'OTRO' ? 'Otro ¿cuál?' : t === 'FTLC' ? 'FTLC' : 'Menor de 6 meses: lactancia materna exclusiva - relactancia'}</option>)}
+          </select>
+        </Campo>
+        {tratamiento === 'OTRO' && (
+          <Campo label="¿Cuál tratamiento? *"><input name="tratamientoOtro" required maxLength={200} placeholder="Ingrese el tratamiento aplicado" className="input" /></Campo>
+        )}
         <Campo label="Requerimiento de energía FTLC (kcal/kg/día)"><input name="energia" maxLength={60} placeholder="Ej: 150 KCAL/KG/DIA" className="input" /></Campo>
         {conFechaFtlc && <Campo label="Fecha de entrega de FTLC"><input type="date" name="fechaEntregaFtlc" max={hoy} className="input" /></Campo>}
         <Campo label="Medicamento" ancho><input name="medicamento" maxLength={300} placeholder="Ej: PLUMPY NUT / ÁCIDO FÓLICO" className="input" /></Campo>
