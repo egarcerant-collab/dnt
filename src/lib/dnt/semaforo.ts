@@ -6,6 +6,7 @@ export type ClaveSemaforo =
   | 'SIN_TRATAMIENTO'
   | 'EN_TRATAMIENTO'
   | 'RECUPERADO'
+  | 'RIESGO_DNT'
   | 'DESCARTADO'
   | 'REINCIDENTE'
   | 'SIN_DATO';
@@ -35,7 +36,11 @@ export const SEMAFORO: Record<ClaveSemaforo, Semaforo> = {
   },
   RECUPERADO: {
     clave: 'RECUPERADO', etiqueta: 'Paciente recuperado', color: '#92D050', texto: '#173300',
-    descripcion: 'Tras el tratamiento cumple criterios de egreso. Incluye a los recuperados que siguen en riesgo de desnutrición (Z entre -2 y -1).',
+    descripcion: 'Tras el tratamiento presenta puntaje Z mayor o igual a -1 DE (peso adecuado para la talla) y cumple criterios de egreso.',
+  },
+  RIESGO_DNT: {
+    clave: 'RIESGO_DNT', etiqueta: 'En riesgo de desnutrición', color: '#3FE0C5', texto: '#053b33',
+    descripcion: 'Recuperado que en su último control sigue en riesgo de desnutrición aguda (puntaje Z peso/talla entre -2 y -1 DE).',
   },
   DESCARTADO: {
     clave: 'DESCARTADO', etiqueta: 'Descartado', color: '#00B0F0', texto: '#ffffff',
@@ -52,7 +57,7 @@ export const SEMAFORO: Record<ClaveSemaforo, Semaforo> = {
 };
 
 export const ORDEN_SEMAFORO: ClaveSemaforo[] = [
-  'FALLECIDO', 'SIN_TRATAMIENTO', 'EN_TRATAMIENTO', 'RECUPERADO', 'DESCARTADO', 'REINCIDENTE',
+  'FALLECIDO', 'SIN_TRATAMIENTO', 'EN_TRATAMIENTO', 'RECUPERADO', 'RIESGO_DNT', 'DESCARTADO', 'REINCIDENTE',
 ];
 
 /** Asigna el semáforo según el estado y, para recuperados, el último puntaje Z peso/talla. */
@@ -64,9 +69,8 @@ export function semaforoDe(estado: Estado | string, ultimoZ?: number | null): Se
     case 'DESERTADO': return SEMAFORO.SIN_TRATAMIENTO;
     case 'EN PROCESO DE RECUPERACION': return SEMAFORO.EN_TRATAMIENTO;
     case 'RECUPERADO':
-      // Recuperados, incluidos los que siguen en riesgo de desnutrición (Z entre -2 y -1): verde
-      void ultimoZ;
-      return SEMAFORO.RECUPERADO;
+      // Recuperado pero aún en riesgo de desnutrición (Z entre -2 y -1): verde agua marina
+      return ultimoZ != null && ultimoZ >= -2 && ultimoZ < -1 ? SEMAFORO.RIESGO_DNT : SEMAFORO.RECUPERADO;
     case 'DESCARTADO': return SEMAFORO.DESCARTADO;
     case 'RECAIDA': return SEMAFORO.REINCIDENTE;
     // Sin estado diligenciado: se considera en seguimiento (amarillo); la alerta de calidad del dato se mantiene
